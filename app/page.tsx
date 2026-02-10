@@ -25,6 +25,7 @@ export default function Home() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [winner, setWinner] = useState<{ text: string; index: number } | null>(null);
+  const [spinDuration, setSpinDuration] = useState<'short' | 'normal' | 'long' | 'epic'>('normal');
 
   // Handle spin end
   const handleSpinEnd = useCallback((winnerText: string, winnerIndex: number) => {
@@ -81,13 +82,20 @@ export default function Home() {
           <p className="text-gray-300 text-sm md:text-base mt-1 text-shadow-sm">Scroll down for controls ↓</p>
         </header>
 
-        <div className="flex-1 flex items-center justify-center w-full max-h-full">
+        <div className="flex-1 flex items-center justify-center w-full max-h-full relative">
           <WheelCanvas
             items={items}
             colors={colors}
             onSpinEnd={handleSpinEnd}
             isSpinning={isSpinning}
             setIsSpinning={setIsSpinning}
+            spinDuration={spinDuration}
+          />
+          {/* Vignette Overlay (Full Screen) */}
+          <div
+            className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 z-50
+              bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.8)_100%)]
+              ${isSpinning ? 'opacity-100' : 'opacity-0'}`}
           />
         </div>
       </section>
@@ -97,6 +105,26 @@ export default function Home() {
         <div className="grid md:grid-cols-2 gap-8 bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 shadow-xl">
           <ListManager items={items} setItems={setItems} />
           <div className="flex flex-col gap-6">
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">⚡</span> Spin Speed
+              </h2>
+              <div className="grid grid-cols-4 gap-2">
+                {(['short', 'normal', 'long', 'epic'] as const).map((duration) => (
+                  <button
+                    key={duration}
+                    onClick={() => setSpinDuration(duration)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium capitalize transition-all ${spinDuration === duration
+                      ? 'bg-blue-600 text-white shadow-lg scale-105'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      }`}
+                  >
+                    {duration === 'epic' ? 'Slow 🐢' : duration}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <ColorPicker
               colors={colors}
               setColors={setColors}
