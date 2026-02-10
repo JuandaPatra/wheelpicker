@@ -57,44 +57,59 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      {/* Header */}
-      <header className="py-6 px-4 text-center border-b border-gray-700/50">
-        <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 text-transparent bg-clip-text">
-          🎡 Wheel Picker
-        </h1>
-        <p className="text-gray-400 mt-2">Click the wheel to spin!</p>
-      </header>
+    <div
+      className="h-screen w-full overflow-y-auto snap-y snap-mandatory bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+      style={
+        backgroundImage
+          ? {
+            backgroundImage: `url(${backgroundImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+          }
+          : undefined
+      }
+    >
+      {/* Header - Fixed or part of the first snap section? Let's keep it part of flow but minimal */}
 
-      {/* Main content */}
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          {/* Left: Wheel */}
-          <div className="flex flex-col items-center gap-6">
-            <WheelCanvas
-              items={items}
-              colors={colors}
-              backgroundImage={backgroundImage}
-              onSpinEnd={handleSpinEnd}
-              isSpinning={isSpinning}
-              setIsSpinning={setIsSpinning}
-            />
-            
-            <SpinHistory history={history} />
-          </div>
+      {/* Section 1: Wheel (Full Screen Snap) */}
+      <section className="h-screen w-full snap-center flex flex-col items-center justify-center p-4">
+        <header className="absolute top-0 left-0 right-0 py-4 px-4 text-left z-10">
+          <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 text-transparent bg-clip-text drop-shadow-lg">
+            🎡 Wheel Picker
+          </h1>
+          <p className="text-gray-300 text-sm md:text-base mt-1 text-shadow-sm">Scroll down for controls ↓</p>
+        </header>
 
-          {/* Right: Controls */}
+        <div className="flex-1 flex items-center justify-center w-full max-h-full">
+          <WheelCanvas
+            items={items}
+            colors={colors}
+            onSpinEnd={handleSpinEnd}
+            isSpinning={isSpinning}
+            setIsSpinning={setIsSpinning}
+          />
+        </div>
+      </section>
+
+      {/* Section 2: Controls (Snap Start) */}
+      <section className="min-h-screen w-full snap-start container mx-auto px-4 py-8 max-w-6xl">
+        <div className="grid md:grid-cols-2 gap-8 bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 shadow-xl">
+          <ListManager items={items} setItems={setItems} />
           <div className="flex flex-col gap-6">
-            <ListManager items={items} setItems={setItems} />
             <ColorPicker
               colors={colors}
               setColors={setColors}
               backgroundImage={backgroundImage}
               setBackgroundImage={setBackgroundImage}
             />
+            <SpinHistory history={history} />
           </div>
         </div>
-      </main>
+        <footer className="text-center text-gray-500 py-8">
+          Scroll up to spin! ↑
+        </footer>
+      </section>
 
       {/* Result Modal */}
       <ResultModal
