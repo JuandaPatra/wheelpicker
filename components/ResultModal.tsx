@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import Image from 'next/image';
 
 interface ResultModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface ResultModalProps {
   onClose: () => void;
   onSpinAgain: () => void;
   onRemoveItem: () => void;
+  effectsEnabled: boolean;
 }
 
 export default function ResultModal({
@@ -17,16 +19,20 @@ export default function ResultModal({
   onClose,
   onSpinAgain,
   onRemoveItem,
+  effectsEnabled,
 }: ResultModalProps) {
   const hasTriggeredConfetti = useRef(false);
 
   useEffect(() => {
     if (isOpen && !hasTriggeredConfetti.current) {
       hasTriggeredConfetti.current = true;
-      
-      // Fire confetti
+
+      if (!effectsEnabled) return;
+
+      // Fire confetti with Jackpot colors
       const duration = 3000;
       const end = Date.now() + duration;
+      const colors = ['#FFD700', '#FFA500', '#FF4500', '#FFFFFF', '#E6BE8A'];
 
       const frame = () => {
         confetti({
@@ -34,14 +40,14 @@ export default function ResultModal({
           angle: 60,
           spread: 55,
           origin: { x: 0, y: 0.6 },
-          colors: ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#AA96DA'],
+          colors: colors,
         });
         confetti({
           particleCount: 3,
           angle: 120,
           spread: 55,
           origin: { x: 1, y: 0.6 },
-          colors: ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#AA96DA'],
+          colors: colors,
         });
 
         if (Date.now() < end) {
@@ -55,7 +61,7 @@ export default function ResultModal({
     if (!isOpen) {
       hasTriggeredConfetti.current = false;
     }
-  }, [isOpen]);
+  }, [isOpen, effectsEnabled]);
 
   if (!isOpen) return null;
 
@@ -68,7 +74,7 @@ export default function ResultModal({
       />
 
       {/* Modal */}
-      <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-700 animate-scale-in">
+      <div className={`relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl border border-gray-700 ${effectsEnabled ? 'animate-scale-in' : ''}`}>
         {/* Close button */}
         <button
           onClick={onClose}
@@ -79,7 +85,17 @@ export default function ResultModal({
 
         {/* Content */}
         <div className="text-center">
-          <div className="text-6xl mb-4">🎉</div>
+          <div className={`flex flex-col items-center justify-center mb-6 ${effectsEnabled ? 'animate-bounce' : ''}`}>
+            <div className="relative w-48 h-48 drop-shadow-2xl filter hover:scale-110 transition-transform duration-300">
+              <Image
+                src="/jackpot_777.png"
+                alt="777 Jackpot"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+          </div>
           <h2 className="text-2xl font-bold text-white mb-2">We Have a Winner!</h2>
           <div className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 text-transparent bg-clip-text text-4xl font-extrabold py-4 px-6 mb-6 break-words">
             {winner}

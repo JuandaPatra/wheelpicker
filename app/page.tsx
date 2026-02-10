@@ -20,6 +20,7 @@ export default function Home() {
   const [colors, setColors] = useLocalStorage<string[]>('wheelColors', DEFAULT_COLORS);
   const [backgroundImage, setBackgroundImage] = useLocalStorage<string | null>('wheelBackground', null);
   const [history, setHistory] = useLocalStorage<HistoryEntry[]>('spinHistory', []);
+  const [effectsEnabled, setEffectsEnabled] = useLocalStorage<boolean>('effectsEnabled', true);
 
   // UI state
   const [isSpinning, setIsSpinning] = useState(false);
@@ -90,12 +91,13 @@ export default function Home() {
             isSpinning={isSpinning}
             setIsSpinning={setIsSpinning}
             spinDuration={spinDuration}
+            effectsEnabled={effectsEnabled}
           />
           {/* Vignette Overlay (Full Screen) */}
           <div
             className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 z-50
               bg-[radial-gradient(circle_at_center,transparent_40%,rgba(0,0,0,0.8)_100%)]
-              ${isSpinning ? 'opacity-100' : 'opacity-0'}`}
+              ${isSpinning && effectsEnabled ? 'opacity-100' : 'opacity-0'}`}
           />
         </div>
       </section>
@@ -125,6 +127,27 @@ export default function Home() {
               </div>
             </div>
 
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="text-2xl">✨</span> Visual Effects
+                </h2>
+                <button
+                  onClick={() => setEffectsEnabled(!effectsEnabled)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${effectsEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${effectsEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                  />
+                </button>
+              </div>
+              <p className="text-gray-400 text-sm mt-2">
+                Disable animations, confetti, and sparkles for a simpler experience.
+              </p>
+            </div>
+
             <ColorPicker
               colors={colors}
               setColors={setColors}
@@ -146,6 +169,7 @@ export default function Home() {
         onClose={() => setShowModal(false)}
         onSpinAgain={handleSpinAgain}
         onRemoveItem={handleRemoveItem}
+        effectsEnabled={effectsEnabled}
       />
     </div>
   );
