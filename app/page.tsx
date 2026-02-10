@@ -80,7 +80,6 @@ export default function Home() {
           <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 text-transparent bg-clip-text drop-shadow-lg">
             🎡 Wheel Picker
           </h1>
-          <p className="text-gray-300 text-sm md:text-base mt-1 text-shadow-sm">Scroll down for controls ↓</p>
         </header>
 
         <div className="flex-1 flex items-center justify-center w-full max-h-full relative">
