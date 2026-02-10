@@ -30,6 +30,7 @@ interface WheelCanvasProps {
   isSpinning: boolean;
   setIsSpinning: (spinning: boolean) => void;
   spinDuration?: SpinDuration;
+  effectsEnabled: boolean;
 }
 
 export default function WheelCanvas({
@@ -39,8 +40,11 @@ export default function WheelCanvas({
   isSpinning,
   setIsSpinning,
   spinDuration = 'normal',
+  effectsEnabled,
 }: WheelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
   const [rotation, setRotation] = useState(0);
   const [canvasSize, setCanvasSize] = useState(800);
   const velocityRef = useRef(0);
@@ -65,52 +69,30 @@ export default function WheelCanvas({
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Draw the wheel
-  const drawWheel = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, currentRotation: number) => {
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+  // Update Static Cached Wheel
+  useEffect(() => {
+    if (items.length === 0) return;
+
+    if (!staticCanvasRef.current) {
+      staticCanvasRef.current = document.createElement('canvas');
+    }
+    const canvas = staticCanvasRef.current;
+    if (canvas.width !== canvasSize || canvas.height !== canvasSize) {
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const centerX = canvasSize / 2;
+    const centerY = canvasSize / 2;
     const radius = Math.min(centerX, centerY) - 60; // More padding for effects
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (items.length === 0) {
-      // Draw empty wheel placeholder
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-      ctx.fillStyle = '#374151';
-      ctx.fill();
-      ctx.strokeStyle = '#6B7280';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      ctx.fillStyle = '#9CA3AF';
-      ctx.font = '18px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('Add items to spin!', centerX, centerY);
-      return;
-    }
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
 
     const sliceAngle = (2 * Math.PI) / items.length;
     const colorPalette = colors.length > 0 ? colors : DEFAULT_COLORS;
-
-    // Pulse scale based on velocity
-    const speed = Math.abs(velocityRef.current);
-    const scale = 1 + Math.min(speed * 0.2, 0.05);
-
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.scale(scale, scale);
-    ctx.translate(-centerX, -centerY);
-
-    // Motion blur / Glow effect
-    if (speed > 0.05) {
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = speed * 40;
-    } else {
-      ctx.shadowBlur = 0;
-    }
 
     // Draw outer rim
     ctx.beginPath();
@@ -118,9 +100,9 @@ export default function WheelCanvas({
     ctx.fillStyle = '#111827';
     ctx.fill();
 
-    // Draw segments
+    // Draw segments (Rotation 0)
     items.forEach((item, index) => {
-      const startAngle = currentRotation + index * sliceAngle;
+      const startAngle = index * sliceAngle;
       const endAngle = startAngle + sliceAngle;
 
       // Draw slice
@@ -185,8 +167,6 @@ export default function WheelCanvas({
       ctx.restore();
     });
 
-    ctx.restore(); // Restore scale transform
-
     // Draw center circle (Hub)
     ctx.beginPath();
     ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
@@ -204,24 +184,81 @@ export default function WheelCanvas({
     ctx.textBaseline = 'middle';
     ctx.fillText('★', centerX, centerY);
 
-    // Draw particles
-    particlesRef.current.forEach(p => {
-      ctx.globalAlpha = p.life;
-      ctx.fillStyle = p.color;
+  }, [items, colors, canvasSize]);
+
+  // Draw the wheel (Render Loop)
+  const drawWheel = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, currentRotation: number) => {
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const radius = Math.min(centerX, centerY) - 60; // Use same radius calc
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (items.length === 0) {
+      // Draw empty wheel placeholder
       ctx.beginPath();
-      ctx.arc(p.x, p.y, 2 + Math.random() * 2, 0, 2 * Math.PI);
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = '#374151';
       ctx.fill();
-    });
+      ctx.strokeStyle = '#6B7280';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = '#9CA3AF';
+      ctx.font = '18px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Add items to spin!', centerX, centerY);
+      return;
+    }
+
+    // Pulse scale based on velocity
+    const speed = Math.abs(velocityRef.current);
+    const scale = 1 + Math.min(speed * 0.2, 0.05);
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    if (effectsEnabled) {
+      ctx.scale(scale, scale);
+    }
+
+    // Motion blur / Glow effect
+    if (effectsEnabled && speed > 0.05) {
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = speed * 40;
+    } else {
+      ctx.shadowBlur = 0;
+    }
+
+    // ROTATE and Draw Static Wheel
+    ctx.rotate(currentRotation);
+
+    if (staticCanvasRef.current) {
+      // Draw cached image centered
+      // Since we translated to centerX, centerY, we draw at -width/2, -height/2
+      ctx.drawImage(staticCanvasRef.current, -centerX, -centerY, canvas.width, canvas.height);
+    }
+
+    ctx.restore(); // Restore transform (scale + rotation)
+
+    // Draw particles (Global coordinates)
+    if (effectsEnabled) {
+      particlesRef.current.forEach(p => {
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2 + Math.random() * 2, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    }
     ctx.globalAlpha = 1.0;
 
-    // Draw pointer at top OUTSIDE wheel
-    const pointerSize = 30;
+    // Draw pointer at top OUTSIDE wheel (Fixed position)
     const tickAngle = pointerTickRef.current;
 
     ctx.save();
     // Position pointer at top edge of wheel + padding
-    // CenterY is middle. Top of wheel is CenterY - radius.
-    // Move pointer slightly above that.
     const pointerY = centerY - radius - 20;
 
     ctx.translate(centerX, pointerY);
@@ -248,7 +285,7 @@ export default function WheelCanvas({
 
     ctx.restore(); // Restore pointer transform
 
-  }, [items, colors]);
+  }, [items, colors, effectsEnabled]); // Reduced dependencies as static drawing is handled separately
 
   // Calculate winner based on rotation
   const calculateWinner = useCallback((currentRotation: number) => {
@@ -299,13 +336,6 @@ export default function WheelCanvas({
           const newRotation = prev + velocityRef.current;
 
           // CHECK FOR TICK
-          const sliceAngle = (2 * Math.PI) / items.length;
-          // Pointer is at 270 deg (1.5 PI). 
-          // We need to check if a boundary passed the pointer.
-          // The rotation of the wheel moves slices.
-          // A boundary is at angle: rotation + index * sliceAngle = 1.5 PI
-
-          // Easier: Calculate current index under pointer
           const { index } = calculateWinner(newRotation);
 
           if (lastSectionRef.current !== -1 && lastSectionRef.current !== index) {
@@ -313,28 +343,30 @@ export default function WheelCanvas({
             pointerTickRef.current = -0.4; // Kick back 0.4 radians
 
             // SPAWN SPARKS
-            const canvas = canvasRef.current;
-            if (canvas) {
-              const centerX = canvas.width / 2;
-              const centerY = canvas.height / 2;
-              const radius = Math.min(centerX, centerY) - 60;
-              const pointerY = centerY - radius - 20; // Match draw logic
+            if (effectsEnabled) {
+              const canvas = canvasRef.current;
+              if (canvas) {
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radius = Math.min(centerX, centerY) - 60;
+                const pointerY = centerY - radius - 20; // Match draw logic
 
-              // Impact sparks (Tangential)
-              const colors = ['#FFD700', '#FFA500', '#FFFFFF'];
-              // Tangential velocity scale
-              const tangVel = velocityRef.current * 40;
+                // Impact sparks (Tangential)
+                const colors = ['#FFD700', '#FFA500', '#FFFFFF'];
+                // Tangential velocity scale
+                const tangVel = velocityRef.current * 40;
 
-              for (let i = 0; i < 8; i++) {
-                particlesRef.current.push({
-                  x: centerX + (Math.random() - 0.5) * 10,
-                  y: pointerY + 25, // Exact tip location
-                  // Sparks fly in wheel direction (Right) + random spread
-                  vx: tangVel + (Math.random() * 5),
-                  vy: (Math.random() - 0.5) * 8 + 2,
-                  life: 1.0,
-                  color: colors[Math.floor(Math.random() * colors.length)]
-                });
+                for (let i = 0; i < 8; i++) {
+                  particlesRef.current.push({
+                    x: centerX + (Math.random() - 0.5) * 10,
+                    y: pointerY + 25, // Exact tip location
+                    // Sparks fly in wheel direction (Right) + random spread
+                    vx: tangVel + (Math.random() * 5),
+                    vy: (Math.random() - 0.5) * 8 + 2,
+                    life: 1.0,
+                    color: colors[Math.floor(Math.random() * colors.length)]
+                  });
+                }
               }
             }
           }
@@ -346,7 +378,7 @@ export default function WheelCanvas({
       }
 
       // Spawn Rim Friction Sparks (Centrifugal/Air friction at high speed)
-      if (isSpinning && velocityRef.current > 0.2) { // Lower threshold for more action
+      if (effectsEnabled && isSpinning && velocityRef.current > 0.2) { // Lower threshold for more action
         const canvas = canvasRef.current;
         if (canvas) {
           const centerX = canvas.width / 2;
@@ -420,7 +452,7 @@ export default function WheelCanvas({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isSpinning, calculateWinner, onSpinEnd, setIsSpinning, items.length, spinDuration]);
+  }, [isSpinning, calculateWinner, onSpinEnd, setIsSpinning, items.length, spinDuration, effectsEnabled]);
 
   // Redraw on rotation change
   useEffect(() => {
@@ -460,7 +492,7 @@ export default function WheelCanvas({
         width={canvasSize}
         height={canvasSize}
         onClick={handleClick}
-        className={`cursor-pointer transition-transform ${isSpinning ? 'cursor-wait' : 'hover:scale-[1.02]'
+        className={`cursor-pointer transition-transform ${isSpinning ? 'cursor-wait' : (effectsEnabled ? 'hover:scale-[1.02]' : '')
           } ${items.length < 2 ? 'opacity-75 cursor-not-allowed' : ''}`}
         style={{ maxWidth: '100%', height: 'auto' }}
       />
