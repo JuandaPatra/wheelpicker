@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { COLOR_PRESETS, ColorPreset } from '@/utils/colors';
 
 interface ColorPickerProps {
@@ -10,6 +11,66 @@ interface ColorPickerProps {
   setBackgroundImage: (image: string | null) => void;
 }
 
+const extractColorsFromImage = (dataUrl: string): Promise<string[]> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve([]);
+        return;
+      }
+      // Small size for performance
+      const size = 50;
+      canvas.width = size;
+      canvas.height = size;
+      ctx.drawImage(img, 0, 0, size, size);
+      const imageData = ctx.getImageData(0, 0, size, size).data;
+      const colorCounts: Record<string, number> = {};
+
+      // Sample pixels to find dominant colors
+      for (let i = 0; i < imageData.length; i += 4) {
+        const r = imageData[i];
+        const g = imageData[i + 1];
+        const b = imageData[i + 2];
+        const a = imageData[i + 3];
+
+        // Skip transparent or too dark/light pixels
+        if (a < 128) continue;
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        if (brightness < 30 || brightness > 245) continue;
+
+        // Quantize colors to group similar ones
+        const qr = Math.round(r / 20) * 20;
+        const qg = Math.round(g / 20) * 20;
+        const qb = Math.round(b / 20) * 20;
+        const hex = `#${qr.toString(16).padStart(2, '0')}${qg.toString(16).padStart(2, '0')}${qb.toString(16).padStart(2, '0')}`.toUpperCase();
+
+        // Ensure hex is 7 characters
+        if (hex.length === 7) {
+          colorCounts[hex] = (colorCounts[hex] || 0) + 1;
+        }
+      }
+
+      const sortedColors = Object.entries(colorCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([color]) => color);
+
+      // Pad with default colors if we didn't find enough
+      if (sortedColors.length < 2) {
+        resolve(['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181']);
+      } else {
+        resolve(sortedColors);
+      }
+    };
+    img.onerror = () => resolve([]);
+    img.src = dataUrl;
+  });
+};
+
 export default function ColorPicker({
   colors,
   setColors,
@@ -17,9 +78,17 @@ export default function ColorPicker({
   setBackgroundImage,
 }: ColorPickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Keep track of colors extracted from the current background image
+  const [imageColors, setImageColors] = useLocalStorage<string[]>('imageExtractedColors', []);
 
   const handlePresetSelect = (preset: ColorPreset) => {
     setColors(COLOR_PRESETS[preset]);
+  };
+
+  const handleImageThemeSelect = () => {
+    if (imageColors.length > 0) {
+      setColors(imageColors);
+    }
   };
 
   const handleCustomColor = (index: number, color: string) => {
@@ -45,18 +114,29 @@ export default function ColorPicker({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      setBackgroundImage(event.target?.result as string);
+    reader.onload = async (event) => {
+      const dataUrl = event.target?.result as string;
+      setBackgroundImage(dataUrl);
+
+      // Auto-extract colors
+      const extractedColors = await extractColorsFromImage(dataUrl);
+      if (extractedColors.length > 0) {
+        setImageColors(extractedColors);
+        setColors(extractedColors);
+      }
     };
     reader.readAsDataURL(file);
   };
 
   const handleRemoveBackground = () => {
     setBackgroundImage(null);
+    setImageColors([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
+
+
 
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
@@ -77,6 +157,14 @@ export default function ColorPicker({
               {preset}
             </button>
           ))}
+          {backgroundImage && imageColors.length > 0 && (
+            <button
+              onClick={handleImageThemeSelect}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium capitalize bg-blue-600/50 hover:bg-blue-600/70 text-white border border-blue-400/30 transition-colors flex items-center gap-1.5"
+            >
+              <span>🖼️</span> Image Theme
+            </button>
+          )}
         </div>
       </div>
 
@@ -147,7 +235,7 @@ export default function ColorPicker({
         {backgroundImage && (
           <div className="mt-2 p-1 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
             <p className="text-yellow-400 text-xs flex items-center gap-1">
-              <span>⚠️</span> Background images may reduce text readability
+              <span>⚠️</span> Background images may reduce text readability. Colors auto-extracted.
             </p>
           </div>
         )}
