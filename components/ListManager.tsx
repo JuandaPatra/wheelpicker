@@ -14,9 +14,18 @@ import {
 interface ListManagerProps {
   items: string[];
   setItems: (items: string[]) => void;
+  disabledIndices: number[];
+  onToggleDisable: (index: number) => void;
+  onEnableAll: () => void;
 }
 
-export default function ListManager({ items, setItems }: ListManagerProps) {
+export default function ListManager({
+  items,
+  setItems,
+  disabledIndices,
+  onToggleDisable,
+  onEnableAll
+}: ListManagerProps) {
   const [inputValue, setInputValue] = useState('');
   const [showAlert, setShowAlert] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +89,7 @@ export default function ListManager({ items, setItems }: ListManagerProps) {
       }
     };
     reader.readAsText(file);
-    
+
     // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -190,10 +199,18 @@ export default function ListManager({ items, setItems }: ListManagerProps) {
         <button
           onClick={handleClearAll}
           disabled={items.length === 0}
-          className="bg-red-600/50 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-sm transition-colors ml-auto"
+          className="bg-red-600/50 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
         >
           🗑️ Clear All
         </button>
+        {disabledIndices.length > 0 && (
+          <button
+            onClick={onEnableAll}
+            className="bg-yellow-600/50 hover:bg-yellow-600 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+          >
+            👁️ Enable All
+          </button>
+        )}
       </div>
 
       {/* Items list */}
@@ -204,15 +221,32 @@ export default function ListManager({ items, setItems }: ListManagerProps) {
           items.map((item, index) => (
             <div
               key={index}
-              className="flex items-center justify-between bg-gray-700/50 rounded-lg px-3 py-2 group hover:bg-gray-700"
+              className={`flex items-center justify-between bg-gray-700/50 rounded-lg px-3 py-2 group hover:bg-gray-700 transition-opacity ${disabledIndices.includes(index) ? 'opacity-50' : 'opacity-100'
+                }`}
             >
-              <span className="text-white truncate mr-2">{item}</span>
-              <button
-                onClick={() => handleRemoveItem(index)}
-                className="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                ✕
-              </button>
+              <span className={`text-white truncate mr-2 ${disabledIndices.includes(index) ? 'line-through text-gray-400' : ''
+                }`}>
+                {item}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => onToggleDisable(index)}
+                  className={`transition-colors whitespace-nowrap ${disabledIndices.includes(index)
+                    ? 'text-yellow-500 hover:text-yellow-400'
+                    : 'text-gray-400 hover:text-white lg:opacity-0 lg:group-hover:opacity-100'
+                    }`}
+                  title={disabledIndices.includes(index) ? 'Enable item' : 'Disable item'}
+                >
+                  {disabledIndices.includes(index) ? '👁️‍🗨️' : '👁️'}
+                </button>
+                <button
+                  onClick={() => handleRemoveItem(index)}
+                  className="text-red-400 hover:text-red-300 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
+                  title="Remove item"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           ))
         )}

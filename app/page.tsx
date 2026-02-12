@@ -8,6 +8,8 @@ import ResultModal from '@/components/ResultModal';
 import SpinHistory from '@/components/SpinHistory';
 import ColorPicker from '@/components/ColorPicker';
 import { DEFAULT_COLORS } from '@/utils/colors';
+import { getWheelItems } from '@/utils/wheelUtils';
+import { useMemo } from 'react';
 
 interface HistoryEntry {
   winner: string;
@@ -21,6 +23,8 @@ export default function Home() {
   const [backgroundImage, setBackgroundImage] = useLocalStorage<string | null>('wheelBackground', null);
   const [history, setHistory] = useLocalStorage<HistoryEntry[]>('spinHistory', []);
   const [effectsEnabled, setEffectsEnabled] = useLocalStorage<boolean>('effectsEnabled', true);
+  const [repeatCount, setRepeatCount] = useLocalStorage<number>('repeatCount', 1);
+  const [disabledIndices, setDisabledIndices] = useLocalStorage<number[]>('disabledIndices', []);
 
   // UI state
   const [isSpinning, setIsSpinning] = useState(false);
@@ -28,12 +32,20 @@ export default function Home() {
   const [winner, setWinner] = useState<{ text: string; index: number } | null>(null);
   const [spinDuration, setSpinDuration] = useState<'short' | 'normal' | 'long' | 'epic'>('normal');
 
+  // Calculate items actually shown on the wheel
+  const { wheelItems, originalIndices: wheelMapping } = useMemo(() =>
+    getWheelItems(items, disabledIndices, repeatCount),
+    [items, disabledIndices, repeatCount]
+  );
+
   // Handle spin end
   const handleSpinEnd = useCallback((winnerText: string, winnerIndex: number) => {
-    setWinner({ text: winnerText, index: winnerIndex });
+    // Map wheel index back to source index
+    const sourceIndex = wheelMapping[winnerIndex];
+    setWinner({ text: winnerText, index: sourceIndex });
     setShowModal(true);
     setHistory(prev => [{ winner: winnerText, timestamp: Date.now() }, ...prev]);
-  }, [setHistory]);
+  }, [setHistory, wheelMapping]);
 
   // Handle spin again from modal
   const handleSpinAgain = () => {
@@ -47,15 +59,31 @@ export default function Home() {
   // Handle remove item from modal
   const handleRemoveItem = () => {
     if (winner !== null) {
-      setItems(prev => prev.filter((_, i) => i !== winner.index));
+      const removedIndex = winner.index;
+      setItems(prev => prev.filter((_, i) => i !== removedIndex));
+
+      // Update disabled indices because they shift
+      setDisabledIndices(prev =>
+        prev
+          .filter(i => i !== removedIndex)
+          .map(i => i > removedIndex ? i - 1 : i)
+      );
     }
     setShowModal(false);
     // Spin again if we have enough items
     setTimeout(() => {
-      if (items.length > 2) {
+      if (wheelItems.length >= 2) {
         setIsSpinning(true);
       }
     }, 200);
+  };
+
+  const toggleDisable = (index: number) => {
+    setDisabledIndices(prev =>
+      prev.includes(index)
+        ? prev.filter(i => i !== index)
+        : [...prev, index]
+    );
   };
 
   return (
@@ -84,7 +112,7 @@ export default function Home() {
 
         <div className="flex-1 flex items-center justify-center w-full max-h-full relative">
           <WheelCanvas
-            items={items}
+            items={wheelItems}
             colors={colors}
             onSpinEnd={handleSpinEnd}
             isSpinning={isSpinning}
@@ -104,7 +132,13 @@ export default function Home() {
       {/* Section 2: Controls (Snap Start) */}
       <section className="min-h-screen w-full snap-start container mx-auto px-4 py-8 max-w-6xl">
         <div className="grid md:grid-cols-2 gap-8 bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 shadow-xl">
-          <ListManager items={items} setItems={setItems} />
+          <ListManager
+            items={items}
+            setItems={setItems}
+            disabledIndices={disabledIndices}
+            onToggleDisable={toggleDisable}
+            onEnableAll={() => setDisabledIndices([])}
+          />
           <div className="flex flex-col gap-6">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -147,6 +181,36 @@ export default function Home() {
               </p>
             </div>
 
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <span className="text-2xl">🔄</span> Repeat List
+              </h2>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-300">Multiplier: {repeatCount}x</span>
+                  <span className="text-sm text-gray-400">Total slices: {wheelItems.length}</span>
+                </div>
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  step="1"
+                  value={repeatCount}
+                  onChange={(e) => setRepeatCount(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600 mb-1"
+                />
+                <div className="flex justify-between text-xs text-gray-500 px-1">
+                  <span>1x</span>
+                  <span>4x</span>
+                  <span>7x</span>
+                  <span>10x</span>
+                </div>
+              </div>
+              <p className="text-gray-400 text-xs mt-3">
+                Repeats the active list multiple times on the wheel. Useful for probability adjustments.
+              </p>
+            </div>
+
             <ColorPicker
               colors={colors}
               setColors={setColors}
@@ -168,6 +232,12 @@ export default function Home() {
         onClose={() => setShowModal(false)}
         onSpinAgain={handleSpinAgain}
         onRemoveItem={handleRemoveItem}
+        onDisableItem={() => {
+          if (winner !== null) {
+            toggleDisable(winner.index);
+          }
+          setShowModal(false);
+        }}
         effectsEnabled={effectsEnabled}
       />
     </div>

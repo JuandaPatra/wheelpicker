@@ -10,6 +10,7 @@ interface ResultModalProps {
   onClose: () => void;
   onSpinAgain: () => void;
   onRemoveItem: () => void;
+  onDisableItem: () => void;
   effectsEnabled: boolean;
 }
 
@@ -19,6 +20,7 @@ export default function ResultModal({
   onClose,
   onSpinAgain,
   onRemoveItem,
+  onDisableItem,
   effectsEnabled,
 }: ResultModalProps) {
   const hasTriggeredConfetti = useRef(false);
@@ -102,18 +104,37 @@ export default function ResultModal({
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col gap-4 justify-center">
             <button
               onClick={onSpinAgain}
-              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105 shadow-lg"
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-4 rounded-xl font-bold text-lg transition-all hover:scale-[1.02] shadow-xl"
             >
               🎡 Spin Again
             </button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={onRemoveItem}
+                className="bg-red-600/10 hover:bg-red-600/20 text-red-400 px-3 py-2.5 rounded-lg font-medium text-sm transition-all border border-red-500/20 hover:border-red-500/40"
+                title="Completely remove item"
+              >
+                🗑️ Remove
+              </button>
+              <button
+                onClick={onDisableItem}
+                className="bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 px-3 py-2.5 rounded-lg font-medium text-sm transition-all border border-yellow-500/20 hover:border-yellow-500/40"
+                title="Temporarily hide item"
+              >
+                👁️ Disable
+              </button>
+            </div>
+          </div>
+          <div className="mt-6">
             <button
-              onClick={onRemoveItem}
-              className="bg-gray-700 hover:bg-gray-600 text-white px-6 py-3 rounded-xl font-semibold transition-all hover:scale-105"
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
             >
-              🗑️ Remove & Spin
+              Close this window
             </button>
           </div>
         </div>
