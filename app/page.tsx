@@ -25,6 +25,7 @@ export default function Home() {
   const [effectsEnabled, setEffectsEnabled] = useLocalStorage<boolean>('effectsEnabled', true);
   const [repeatCount, setRepeatCount] = useLocalStorage<number>('repeatCount', 1);
   const [disabledIndices, setDisabledIndices] = useLocalStorage<number[]>('disabledIndices', []);
+  const [backgroundTint, setBackgroundTint] = useLocalStorage<string>('backgroundTint', '');
 
   // UI state
   const [isSpinning, setIsSpinning] = useState(false);
@@ -88,7 +89,7 @@ export default function Home() {
 
   return (
     <div
-      className="h-screen w-full overflow-y-auto snap-y snap-mandatory bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900"
+      className={`h-screen w-full overflow-y-auto snap-y snap-mandatory ${!backgroundImage && !backgroundTint ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : ''}`}
       style={
         backgroundImage
           ? {
@@ -97,7 +98,9 @@ export default function Home() {
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
           }
-          : undefined
+          : backgroundTint
+            ? { backgroundColor: backgroundTint }
+            : undefined
       }
     >
       {/* Header - Fixed or part of the first snap section? Let's keep it part of flow but minimal */}
@@ -219,6 +222,8 @@ export default function Home() {
               setColors={setColors}
               backgroundImage={backgroundImage}
               setBackgroundImage={setBackgroundImage}
+              backgroundTint={backgroundTint}
+              setBackgroundTint={setBackgroundTint}
             />
             <SpinHistory history={history} />
           </div>
