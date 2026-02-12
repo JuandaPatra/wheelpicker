@@ -154,7 +154,10 @@ export default function Home() {
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       }`}
                   >
-                    {duration === 'epic' ? 'Slow 🐢' : duration}
+                    {duration === 'short' ? 'Fast' :
+                      duration === 'normal' ? 'Normal' :
+                        duration === 'long' ? 'Slow Stop' :
+                          'Very Slow 🐢'}
                   </button>
                 ))}
               </div>

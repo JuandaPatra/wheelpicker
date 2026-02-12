@@ -7,10 +7,10 @@ import { DEFAULT_COLORS } from '@/utils/colors';
 export type SpinDuration = 'short' | 'normal' | 'long' | 'epic';
 
 const FRICTION_MAP = {
-  short: 0.98,
+  short: 0.97,
   normal: 0.985,
-  long: 0.992,
-  epic: 0.996, // Very slow deceleration
+  long: 0.994,   // Slow Stop
+  epic: 0.9975, // Very Slow Stop
 };
 
 // Particle system for sparks
@@ -127,44 +127,64 @@ export default function WheelCanvas({
       const bgColor = colorPalette[index % colorPalette.length];
       ctx.fillStyle = getContrastColor(bgColor);
 
-      // Dynamically adjust text based on item count
-      const count = items.length;
-      let fontSize: number;
-      let textRadiusFactor: number;
-      let maxWidthFactor: number;
+      // --- NEW ADAPTIVE TEXT RENDERING ---
+      const sliceAngleSize = (2 * Math.PI) / items.length;
 
-      if (count <= 8) {
-        fontSize = 25;
-        textRadiusFactor = 0.65;
-        maxWidthFactor = 0.5;
-      } else if (count <= 20) {
-        const t = (count - 8) / 12;
-        fontSize = Math.round(25 - t * 5);
-        textRadiusFactor = 0.65 + t * 0.1;
-        maxWidthFactor = 0.5 - t * 0.15;
-      } else {
-        const t = Math.min((count - 20) / 15, 1);
-        fontSize = Math.round(20 - t * 6);
-        textRadiusFactor = 0.75 + t * 0.07;
-        maxWidthFactor = 0.35 - t * 0.15;
-      }
+      // 1. Set text anchor right at the rim (with small 15px padding)
+      const textRadius = radius - 15;
 
-      const textRadius = radius * textRadiusFactor;
-      const maxTextWidth = radius * maxWidthFactor;
+      // 2. Max width: from rim almost to the center hub (dist of ~45px from center)
+      const maxTextWidth = radius - 45;
 
-      ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+      // 3. Calculate initial font size based on slice count
+      // Larger for few items, smaller for many
+      let fontSize = 28;
+      if (items.length > 12) fontSize = 22;
+      if (items.length > 24) fontSize = 18;
+      if (items.length > 40) fontSize = 14;
+      if (items.length > 60) fontSize = 10;
+
       ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
 
-      // Truncate text if too long
+      // 4. Adaptive scaling: Shrink font if text is too long for the radius
+      // or if it's too tall for the wedge height at the hub
       let displayText = item;
-      while (ctx.measureText(displayText).width > maxTextWidth && displayText.length > 3) {
-        displayText = displayText.slice(0, -4) + '...';
+      let currentFont = `bold ${fontSize}px system-ui, sans-serif`;
+      ctx.font = currentFont;
+
+      let textWidth = ctx.measureText(displayText).width;
+
+      // Iteratively shrink font to fit width
+      while (textWidth > maxTextWidth && fontSize > 8) {
+        fontSize -= 1;
+        ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+        textWidth = ctx.measureText(displayText).width;
       }
 
-      ctx.shadowBlur = 0; // No shadow for text
+      // Final vertical constraint check (prevent overlap in thin slices)
+      // Height of slice at inner end of text: H = 2 * r_inner * sin(angle/2)
+      const innerRadius = textRadius - textWidth;
+      const sliceHeightAtInner = 2 * innerRadius * Math.sin(sliceAngleSize / 2);
+
+      // If font is still too chunky for the thin wedge, shrink more
+      if (fontSize > sliceHeightAtInner * 0.9 && fontSize > 8) {
+        fontSize = Math.max(8, Math.floor(sliceHeightAtInner * 0.9));
+        ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+      }
+
+      // 5. Final Truncation (Only as a last resort at min-size)
+      if (ctx.measureText(displayText).width > maxTextWidth) {
+        while (ctx.measureText(displayText + '...').width > maxTextWidth && displayText.length > 2) {
+          displayText = displayText.slice(0, -1);
+        }
+        displayText += '...';
+      }
+
+      ctx.shadowBlur = 0;
       ctx.fillText(displayText, textRadius, 0);
       ctx.restore();
+      // --- END NEW RENDERING ---
     });
 
     // Draw center circle (Hub)
@@ -315,7 +335,8 @@ export default function WheelCanvas({
     // Set velocity if not already spinning (for "Spin Again")
     // JUICY: Higher velocity range
     if (velocityRef.current < 0.01) {
-      velocityRef.current = 0.5 + Math.random() * 0.3; // 0.5 - 0.8 rad/frame
+      const boost = spinDuration === 'epic' ? 0.3 : (spinDuration === 'long' ? 0.15 : 0);
+      velocityRef.current = 0.5 + Math.random() * 0.3 + boost; // Higher base and duration-based boost
     }
     hasEndedRef.current = false;
 
@@ -325,7 +346,9 @@ export default function WheelCanvas({
       let friction = baseFriction;
 
       if (spinDuration === 'epic' && velocityRef.current > 0.1) {
-        friction = 0.998;
+        friction = 0.9985; // Extra persistent for a long time
+      } else if (spinDuration === 'long' && velocityRef.current > 0.15) {
+        friction = 0.996; // Slightly more persistent than base long
       }
 
       // Update physics if spinning
@@ -480,8 +503,9 @@ export default function WheelCanvas({
   const handleClick = () => {
     if (isSpinning || items.length < 2) return;
 
-    // Random velocity between 0.3 and 0.5 radians per frame
-    velocityRef.current = 0.3 + Math.random() * 0.2;
+    // Random velocity with duration-based boost
+    const boost = spinDuration === 'epic' ? 0.4 : (spinDuration === 'long' ? 0.2 : 0);
+    velocityRef.current = 0.4 + Math.random() * 0.3 + boost;
     setIsSpinning(true);
   };
 
