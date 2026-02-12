@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { COLOR_PRESETS, ColorPreset } from '@/utils/colors';
 
 interface ColorPickerProps {
@@ -8,8 +9,6 @@ interface ColorPickerProps {
   setColors: (colors: string[]) => void;
   backgroundImage: string | null;
   setBackgroundImage: (image: string | null) => void;
-  backgroundTint: string;
-  setBackgroundTint: (color: string) => void;
 }
 
 const extractColorsFromImage = (dataUrl: string): Promise<string[]> => {
@@ -77,13 +76,19 @@ export default function ColorPicker({
   setColors,
   backgroundImage,
   setBackgroundImage,
-  backgroundTint,
-  setBackgroundTint,
 }: ColorPickerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Keep track of colors extracted from the current background image
+  const [imageColors, setImageColors] = useLocalStorage<string[]>('imageExtractedColors', []);
 
   const handlePresetSelect = (preset: ColorPreset) => {
     setColors(COLOR_PRESETS[preset]);
+  };
+
+  const handleImageThemeSelect = () => {
+    if (imageColors.length > 0) {
+      setColors(imageColors);
+    }
   };
 
   const handleCustomColor = (index: number, color: string) => {
@@ -116,6 +121,7 @@ export default function ColorPicker({
       // Auto-extract colors
       const extractedColors = await extractColorsFromImage(dataUrl);
       if (extractedColors.length > 0) {
+        setImageColors(extractedColors);
         setColors(extractedColors);
       }
     };
@@ -124,14 +130,13 @@ export default function ColorPicker({
 
   const handleRemoveBackground = () => {
     setBackgroundImage(null);
+    setImageColors([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const handleResetTint = () => {
-    setBackgroundTint('');
-  };
+
 
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
@@ -152,6 +157,14 @@ export default function ColorPicker({
               {preset}
             </button>
           ))}
+          {backgroundImage && imageColors.length > 0 && (
+            <button
+              onClick={handleImageThemeSelect}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium capitalize bg-blue-600/50 hover:bg-blue-600/70 text-white border border-blue-400/30 transition-colors flex items-center gap-1.5"
+            >
+              <span>🖼️</span> Image Theme
+            </button>
+          )}
         </div>
       </div>
 
@@ -190,66 +203,42 @@ export default function ColorPicker({
         </div>
       </div>
 
-      {/* Background image & Tint */}
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Background Image
+      {/* Background image */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Background Image
+        </label>
+        <div className="flex items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleBackgroundUpload}
+            className="hidden"
+            id="bg-upload"
+          />
+          <label
+            htmlFor="bg-upload"
+            className="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm"
+          >
+            <span>🖼️</span> Upload
           </label>
-          <div className="flex items-center gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleBackgroundUpload}
-              className="hidden"
-              id="bg-upload"
-            />
-            <label
-              htmlFor="bg-upload"
-              className="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg cursor-pointer transition-colors text-sm"
-            >
-              <span>🖼️</span> Upload
-            </label>
-            {backgroundImage && (
-              <button
-                onClick={handleRemoveBackground}
-                className="text-red-400 hover:text-red-300 text-sm"
-              >
-                Remove
-              </button>
-            )}
-          </div>
           {backgroundImage && (
-            <div className="mt-2 p-1 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
-              <p className="text-yellow-400 text-xs flex items-center gap-1">
-                <span>⚠️</span> Background images may reduce text readability. Colors auto-extracted.
-              </p>
-            </div>
+            <button
+              onClick={handleRemoveBackground}
+              className="text-red-400 hover:text-red-300 text-sm"
+            >
+              Remove
+            </button>
           )}
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
-            Background Tint
-          </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={backgroundTint || '#111827'}
-              onChange={(e) => setBackgroundTint(e.target.value)}
-              className="w-10 h-10 rounded-lg cursor-pointer border-2 border-gray-600 hover:border-gray-500 bg-transparent"
-            />
-            {backgroundTint && (
-              <button
-                onClick={handleResetTint}
-                className="text-gray-400 hover:text-gray-300 text-sm"
-              >
-                Reset to Gradient
-              </button>
-            )}
+        {backgroundImage && (
+          <div className="mt-2 p-1 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
+            <p className="text-yellow-400 text-xs flex items-center gap-1">
+              <span>⚠️</span> Background images may reduce text readability. Colors auto-extracted.
+            </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
