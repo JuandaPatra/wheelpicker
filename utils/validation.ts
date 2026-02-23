@@ -55,25 +55,88 @@ export function validateItems(items: string[], existingCount: number = 0): Valid
 }
 
 /**
+ * Parse a single CSV line respecting RFC 4180 quoted fields.
+ * Returns an array of fields from that line.
+ */
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
+
+  while (i < line.length) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        // Peek ahead: escaped quote ("") or closing quote?
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          current += '"';
+          i += 2;
+        } else {
+          inQuotes = false;
+          i++;
+        }
+      } else {
+        current += ch;
+        i++;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+        i++;
+      } else if (ch === ',') {
+        fields.push(current);
+        current = '';
+        i++;
+      } else {
+        current += ch;
+        i++;
+      }
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+/**
  * Parse file content (CSV or TXT)
+ * CSV import is RFC 4180-aware so files exported by generateCsvContent
+ * are safely re-imported.
  */
 export function parseFileContent(content: string, filename: string): string[] {
   const extension = filename.toLowerCase().split('.').pop();
-  
+
   if (extension === 'csv') {
-    // For CSV, split by newlines and handle potential quoted values
     return content.split(/\r?\n/).flatMap(line => {
-      // Simple CSV parsing - handle comma-separated values
-      // This handles basic CSV without complex quoted fields
-      if (line.includes(',')) {
-        return line.split(',');
+      if (line.includes(',') || line.startsWith('"')) {
+        return parseCSVLine(line);
       }
       return [line];
     });
   }
-  
+
   // For TXT and other files, split by newlines
   return content.split(/\r?\n/);
+}
+
+/**
+ * Escape a single field per RFC 4180:
+ * wrap in double-quotes if it contains a comma, double-quote, or newline;
+ * double any internal double-quotes.
+ */
+export function escapeCSVField(field: string): string {
+  if (field.includes(',') || field.includes('"') || field.includes('\n') || field.includes('\r')) {
+    return `"${field.replace(/"/g, '""')}"`;
+  }
+  return field;
+}
+
+/**
+ * Generate a CSV string from an array of items (one item per row).
+ * Exported files are RFC 4180-compliant and can be re-imported.
+ */
+export function generateCsvContent(items: string[]): string {
+  return items.map(escapeCSVField).join('\n');
 }
 
 /**
