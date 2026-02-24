@@ -6,6 +6,8 @@ import {
     shuffleArray,
     sortArrayAZ,
     sortArrayZA,
+    escapeCSVField,
+    generateCsvContent,
     MAX_ITEMS,
     MIN_ITEMS_TO_SPIN,
 } from '@/utils/validation';
@@ -144,6 +146,67 @@ describe('utils/validation', () => {
         it('should handle case-insensitive extension matching', () => {
             const result = parseFileContent('a,b\nc,d', 'data.CSV');
             expect(result).toEqual(['a', 'b', 'c', 'd']);
+        });
+
+        // RFC 4180 round-trip: quoted fields exported by generateCsvContent
+        it('should correctly parse a quoted field containing a comma', () => {
+            const result = parseFileContent('"hello, world"', 'data.csv');
+            expect(result).toEqual(['hello, world']);
+        });
+
+        it('should correctly parse a quoted field containing escaped double-quotes', () => {
+            const result = parseFileContent('"say \"\"hi\"\""', 'data.csv');
+            expect(result).toEqual(['say "hi"']);
+        });
+    });
+
+    // ─── escapeCSVField ──────────────────────────────────────
+
+    describe('escapeCSVField', () => {
+        it('should return plain strings unchanged', () => {
+            expect(escapeCSVField('apple')).toBe('apple');
+        });
+
+        it('should wrap fields containing a comma in double-quotes', () => {
+            expect(escapeCSVField('hello, world')).toBe('"hello, world"');
+        });
+
+        it('should escape internal double-quotes by doubling them', () => {
+            expect(escapeCSVField('say "hi"')).toBe('"say \"\"hi\"\""');
+        });
+
+        it('should wrap fields containing a newline in double-quotes', () => {
+            expect(escapeCSVField('line1\nline2')).toBe('"line1\nline2"');
+        });
+
+        it('should handle empty string', () => {
+            expect(escapeCSVField('')).toBe('');
+        });
+    });
+
+    // ─── generateCsvContent ──────────────────────────────────
+
+    describe('generateCsvContent', () => {
+        it('should join items with newlines', () => {
+            expect(generateCsvContent(['apple', 'banana', 'cherry'])).toBe('apple\nbanana\ncherry');
+        });
+
+        it('should return empty string for empty array', () => {
+            expect(generateCsvContent([])).toBe('');
+        });
+
+        it('should escape items with commas', () => {
+            expect(generateCsvContent(['hello, world', 'plain'])).toBe('"hello, world"\nplain');
+        });
+
+        it('should roundtrip: exported CSV re-imports to original items', () => {
+            const original = ['plain', 'with, comma', 'with "quote"', 'both, and "quote"'];
+            const csv = generateCsvContent(original);
+            // parseFileContent expects a filename; simulate re-import as .csv
+            const reimported = parseFileContent(csv, 'wheel-items.csv')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            expect(reimported).toEqual(original);
         });
     });
 

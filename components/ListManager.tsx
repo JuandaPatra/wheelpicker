@@ -8,6 +8,7 @@ import {
   shuffleArray,
   sortArrayAZ,
   sortArrayZA,
+  generateCsvContent,
   MAX_ITEMS,
 } from '@/utils/validation';
 
@@ -107,6 +108,18 @@ export default function ListManager({
   const handleShuffle = () => setItems(shuffleArray(items));
   const handleClearAll = () => setItems([]);
 
+  // Export as CSV
+  const handleExportCsv = () => {
+    const csv = generateCsvContent(items);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'wheel-items.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
       <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
@@ -155,8 +168,8 @@ export default function ListManager({
         />
       </div>
 
-      {/* File import */}
-      <div className="mb-4">
+      {/* File import + export */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <input
           ref={fileInputRef}
           type="file"
@@ -171,6 +184,14 @@ export default function ListManager({
         >
           <span>📁</span> Import CSV/TXT
         </label>
+        <button
+          onClick={handleExportCsv}
+          disabled={items.length === 0}
+          title="Download wheel items as CSV"
+          className="inline-flex items-center gap-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
+        >
+          <span>📤</span> Export CSV
+        </button>
       </div>
 
       {/* Action buttons */}

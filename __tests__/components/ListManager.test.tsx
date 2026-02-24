@@ -6,10 +6,16 @@ describe('components/ListManager', () => {
     const defaultProps = {
         items: ['Apple', 'Banana', 'Cherry'],
         setItems: jest.fn(),
+        disabledIndices: [],
+        onToggleDisable: jest.fn(),
+        onEnableAll: jest.fn(),
     };
 
     beforeEach(() => {
         jest.clearAllMocks();
+        // Provide browser APIs not available in jsdom
+        global.URL.createObjectURL = jest.fn(() => 'blob:mock');
+        global.URL.revokeObjectURL = jest.fn();
     });
 
     it('should render the List Items heading with count', () => {
@@ -111,7 +117,7 @@ describe('components/ListManager', () => {
     // ─── Empty state ─────────────────────────────────────────
 
     it('should show empty message when there are no items', () => {
-        render(<ListManager items={[]} setItems={jest.fn()} />);
+        render(<ListManager items={[]} setItems={jest.fn()} disabledIndices={[]} onToggleDisable={jest.fn()} onEnableAll={jest.fn()} />);
         expect(
             screen.getByText('No items yet. Add some above!')
         ).toBeInTheDocument();
@@ -120,7 +126,7 @@ describe('components/ListManager', () => {
     // ─── Disabled states ─────────────────────────────────────
 
     it('should disable action buttons when items are empty', () => {
-        render(<ListManager items={[]} setItems={jest.fn()} />);
+        render(<ListManager items={[]} setItems={jest.fn()} disabledIndices={[]} onToggleDisable={jest.fn()} onEnableAll={jest.fn()} />);
         expect(screen.getByText('A → Z')).toBeDisabled();
         expect(screen.getByText('Z → A')).toBeDisabled();
         expect(screen.getByText('🔀 Shuffle')).toBeDisabled();
@@ -129,7 +135,7 @@ describe('components/ListManager', () => {
 
     it('should disable Add button when items reach MAX_ITEMS', () => {
         const maxItems = Array.from({ length: MAX_ITEMS }, (_, i) => `item${i}`);
-        render(<ListManager items={maxItems} setItems={jest.fn()} />);
+        render(<ListManager items={maxItems} setItems={jest.fn()} disabledIndices={[]} onToggleDisable={jest.fn()} onEnableAll={jest.fn()} />);
         expect(screen.getByText('Add')).toBeDisabled();
     });
 
@@ -138,5 +144,22 @@ describe('components/ListManager', () => {
     it('should render file import label', () => {
         render(<ListManager {...defaultProps} />);
         expect(screen.getByText('Import CSV/TXT')).toBeInTheDocument();
+    });
+
+    // ─── Export CSV ───────────────────────────────────────────
+
+    it('should render Export CSV button', () => {
+        render(<ListManager {...defaultProps} />);
+        expect(screen.getByText('Export CSV')).toBeInTheDocument();
+    });
+
+    it('should disable Export CSV button when items list is empty', () => {
+        render(<ListManager items={[]} setItems={jest.fn()} disabledIndices={[]} onToggleDisable={jest.fn()} onEnableAll={jest.fn()} />);
+        expect(screen.getByText('Export CSV').closest('button')).toBeDisabled();
+    });
+
+    it('should enable Export CSV button when items exist', () => {
+        render(<ListManager {...defaultProps} />);
+        expect(screen.getByText('Export CSV').closest('button')).not.toBeDisabled();
     });
 });
