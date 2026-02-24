@@ -5,7 +5,6 @@ import {
   parseItems,
   validateItems,
   parseFileContent,
-  shuffleArray,
   sortArrayAZ,
   sortArrayZA,
   generateCsvContent,
@@ -18,6 +17,7 @@ interface ListManagerProps {
   disabledIndices: number[];
   onToggleDisable: (index: number) => void;
   onEnableAll: () => void;
+  onShuffle: () => void;
 }
 
 export default function ListManager({
@@ -25,7 +25,8 @@ export default function ListManager({
   setItems,
   disabledIndices,
   onToggleDisable,
-  onEnableAll
+  onEnableAll,
+  onShuffle
 }: ListManagerProps) {
   const [inputValue, setInputValue] = useState('');
   const [showAlert, setShowAlert] = useState<string | null>(null);
@@ -105,7 +106,7 @@ export default function ListManager({
   // Sort and shuffle
   const handleSortAZ = () => setItems(sortArrayAZ(items));
   const handleSortZA = () => setItems(sortArrayZA(items));
-  const handleShuffle = () => setItems(shuffleArray(items));
+  const handleShuffle = onShuffle;
   const handleClearAll = () => setItems([]);
 
   // Export as CSV

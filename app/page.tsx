@@ -9,6 +9,7 @@ import SpinHistory from '@/components/SpinHistory';
 import ColorPicker from '@/components/ColorPicker';
 import { DEFAULT_COLORS } from '@/utils/colors';
 import { getWheelItems } from '@/utils/wheelUtils';
+import { shuffleArray } from '@/utils/validation';
 import { useMemo } from 'react';
 
 interface HistoryEntry {
@@ -86,6 +87,28 @@ export default function Home() {
     );
   };
 
+  // Shuffle items AND remap disabledIndices so disabled states follow their items
+  const handleShuffle = useCallback(() => {
+    // Build an array of indices [0, 1, 2, ...] and shuffle it
+    const indices = items.map((_, i) => i);
+    const shuffledIndices = shuffleArray(indices);
+
+    // Reorder items according to shuffled indices
+    const newItems = shuffledIndices.map(i => items[i]);
+
+    // Build a reverse mapping: oldIndex -> newIndex
+    const oldToNew = new Map<number, number>();
+    shuffledIndices.forEach((oldIdx, newIdx) => {
+      oldToNew.set(oldIdx, newIdx);
+    });
+
+    // Remap disabled indices to follow items to their new positions
+    const newDisabled = disabledIndices.map(oldIdx => oldToNew.get(oldIdx)!).filter(i => i !== undefined);
+
+    setItems(newItems);
+    setDisabledIndices(newDisabled);
+  }, [items, disabledIndices, setItems, setDisabledIndices]);
+
   return (
     <div
       className={`h-screen w-full overflow-y-auto snap-y snap-mandatory ${!backgroundImage ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : ''}`}
@@ -138,6 +161,7 @@ export default function Home() {
             disabledIndices={disabledIndices}
             onToggleDisable={toggleDisable}
             onEnableAll={() => setDisabledIndices([])}
+            onShuffle={handleShuffle}
           />
           <div className="flex flex-col gap-6">
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
