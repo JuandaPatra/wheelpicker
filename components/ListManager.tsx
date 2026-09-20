@@ -122,7 +122,7 @@ export default function ListManager({
   };
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+    <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700  lg:w-full sm:w-75">
       <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
         <span className="text-2xl">📝</span> List Items
         <span className="text-sm font-normal text-gray-400">
@@ -246,7 +246,7 @@ export default function ListManager({
               className={`flex items-center justify-between bg-gray-700/50 rounded-lg px-3 py-2 group hover:bg-gray-700 transition-opacity ${disabledIndices.includes(index) ? 'opacity-50' : 'opacity-100'
                 }`}
             >
-              <span className={`text-white truncate mr-2 ${disabledIndices.includes(index) ? 'line-through text-gray-400' : ''
+              <span className={`text-white truncate mr-2 min-w-0 ${disabledIndices.includes(index) ? 'line-through text-gray-400' : ''
                 }`}>
                 {item}
               </span>

@@ -233,7 +233,7 @@ export default function ColorPicker({
           )}
         </div>
         {backgroundImage && (
-          <div className="mt-2 p-1 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
+          <div className="mt-2 p-1 bg-yellow-500/20 border border-yellow-500/50 rounded-lg sm:w-87.5">
             <p className="text-yellow-400 text-xs flex items-center gap-1">
               <span>⚠️</span> Background images may reduce text readability. Colors auto-extracted.
             </p>

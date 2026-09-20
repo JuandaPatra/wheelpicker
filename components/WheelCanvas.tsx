@@ -31,6 +31,17 @@ interface WheelCanvasProps {
   setIsSpinning: (spinning: boolean) => void;
   spinDuration?: SpinDuration;
   effectsEnabled: boolean;
+  containerRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+const MIN_CANVAS_SIZE = 260;
+const MAX_CANVAS_SIZE = 1200;
+const SIZE_PADDING_RATIO = 0.95;
+
+// Space reserved around the wheel for the pointer/glow effects, scaled to canvas size
+// instead of a fixed pixel value so small canvases don't lose a disproportionate chunk of radius.
+function getEffectPadding(halfCanvasSize: number) {
+  return Math.max(15, Math.min(60, halfCanvasSize * 0.1));
 }
 
 export default function WheelCanvas({
@@ -41,6 +52,7 @@ export default function WheelCanvas({
   setIsSpinning,
   spinDuration = 'normal',
   effectsEnabled,
+  containerRef
 }: WheelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -55,19 +67,40 @@ export default function WheelCanvas({
   const pointerTickRef = useRef(0);
   const particlesRef = useRef<Particle[]>([]);
 
-  // Dynamically set canvas size based on viewport height
+  // Dynamically set canvas size based on the actual space available in its container
   useEffect(() => {
-    const updateSize = () => {
-      const vh = window.innerHeight * 0.95;
-      const vw = window.innerWidth * 0.95;
-      const size = Math.min(vh, vw, 1200); // Cap at 1200px
+    const containerEl = containerRef?.current;
+
+    const computeFromRect = (width: number, height: number) => {
+      if (width <= 0 || height <= 0) return;
+      const available = Math.min(width, height) * SIZE_PADDING_RATIO;
+      const size = Math.max(MIN_CANVAS_SIZE, Math.min(available, MAX_CANVAS_SIZE));
       setCanvasSize(size);
     };
 
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
+    if (containerEl && typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        computeFromRect(entry.contentRect.width, entry.contentRect.height);
+      });
+      observer.observe(containerEl);
+
+      // Seed immediately so we don't flash the default 800px size before the first callback fires
+      const rect = containerEl.getBoundingClientRect();
+      computeFromRect(rect.width, rect.height);
+
+      return () => observer.disconnect();
+    }
+
+    // Fallback: no container ref, or ResizeObserver unsupported
+    const updateSizeFromWindow = () => {
+      computeFromRect(window.innerWidth, window.innerHeight);
+    };
+    updateSizeFromWindow();
+    window.addEventListener('resize', updateSizeFromWindow);
+    return () => window.removeEventListener('resize', updateSizeFromWindow);
+  }, [containerRef]);
 
   // Update Static Cached Wheel
   useEffect(() => {
@@ -87,7 +120,7 @@ export default function WheelCanvas({
 
     const centerX = canvasSize / 2;
     const centerY = canvasSize / 2;
-    const radius = Math.min(centerX, centerY) - 60; // More padding for effects
+    const radius = Math.min(centerX, centerY) - getEffectPadding(Math.min(centerX, centerY));
 
     ctx.clearRect(0, 0, canvasSize, canvasSize);
 
@@ -210,7 +243,7 @@ export default function WheelCanvas({
   const drawWheel = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, currentRotation: number) => {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
-    const radius = Math.min(centerX, centerY) - 60; // Use same radius calc
+    const radius = Math.min(centerX, centerY) - getEffectPadding(Math.min(centerX, centerY)); // Use same radius calc
 
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -371,7 +404,7 @@ export default function WheelCanvas({
               if (canvas) {
                 const centerX = canvas.width / 2;
                 const centerY = canvas.height / 2;
-                const radius = Math.min(centerX, centerY) - 60;
+                const radius = Math.min(centerX, centerY) - getEffectPadding(Math.min(centerX, centerY));
                 const pointerY = centerY - radius - 20; // Match draw logic
 
                 // Impact sparks (Tangential)
@@ -406,7 +439,7 @@ export default function WheelCanvas({
         if (canvas) {
           const centerX = canvas.width / 2;
           const centerY = canvas.height / 2;
-          const radius = Math.min(centerX, centerY) - 60;
+          const radius = Math.min(centerX, centerY) - getEffectPadding(Math.min(centerX, centerY));
           const colors = ['#FF4500', '#FFD700', '#FFFFFF']; // Added White for pop
 
           // Spawn random sparks on the rim (Increased count)

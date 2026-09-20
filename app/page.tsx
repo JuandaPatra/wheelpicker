@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import WheelCanvas from '@/components/WheelCanvas';
 import ListManager from '@/components/ListManager';
@@ -18,6 +18,7 @@ interface HistoryEntry {
 }
 
 export default function Home() {
+  const wheelContainerRef = useRef<HTMLDivElement>(null);
   // Persistent state
   const [items, setItems] = useLocalStorage<string[]>('wheelItems', []);
   const [colors, setColors] = useLocalStorage<string[]>('wheelColors', DEFAULT_COLORS);
@@ -111,7 +112,7 @@ export default function Home() {
 
   return (
     <div
-      className={`h-screen w-full overflow-y-auto snap-y snap-mandatory ${!backgroundImage ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : ''}`}
+      className={`h-dvh w-full overflow-y-auto snap-y snap-mandatory ${!backgroundImage ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : ''}`}
       style={
         backgroundImage
           ? {
@@ -126,14 +127,14 @@ export default function Home() {
       {/* Header - Fixed or part of the first snap section? Let's keep it part of flow but minimal */}
 
       {/* Section 1: Wheel (Full Screen Snap) */}
-      <section className="h-screen w-full snap-center flex flex-col items-center justify-center p-4">
+      <section className="h-dvh w-full snap-center flex flex-col items-center justify-center p-4">
         <header className="absolute top-0 left-0 right-0 py-4 px-4 text-left z-10">
           <h1 className="text-3xl md:text-5xl font-extrabold bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 text-transparent bg-clip-text drop-shadow-lg">
             🎡 Wheel Picker
           </h1>
         </header>
 
-        <div className="flex-1 flex items-center justify-center w-full max-h-full relative">
+        <div ref={wheelContainerRef} className="flex-1 flex items-center justify-center w-full max-h-full relative">
           <WheelCanvas
             items={wheelItems}
             colors={colors}
@@ -142,6 +143,7 @@ export default function Home() {
             setIsSpinning={setIsSpinning}
             spinDuration={spinDuration}
             effectsEnabled={effectsEnabled}
+            containerRef={wheelContainerRef}
           />
           {/* Vignette Overlay (Full Screen) */}
           <div
@@ -154,7 +156,7 @@ export default function Home() {
 
       {/* Section 2: Controls (Snap Start) */}
       <section className="min-h-screen w-full snap-start container mx-auto px-4 py-8 max-w-6xl">
-        <div className="grid md:grid-cols-2 gap-8 bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 shadow-xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 shadow-xl">
           <ListManager
             items={items}
             setItems={setItems}
