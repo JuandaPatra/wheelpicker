@@ -163,9 +163,9 @@ export default function ListManager({
       <div className="mb-4">
         <textarea
           onPaste={handlePaste}
+          onChange={(e) => e.target.value !== '' && (e.target.value = '')}
           placeholder="Paste multiple items here (one per line or comma-separated)"
           className="w-full h-20 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          readOnly
         />
       </div>
 
