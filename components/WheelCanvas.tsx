@@ -57,7 +57,6 @@ export default function WheelCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [rotation, setRotation] = useState(0);
   const [canvasSize, setCanvasSize] = useState(800);
   const velocityRef = useRef(0);
   const animationRef = useRef<number | null>(null);
@@ -66,6 +65,10 @@ export default function WheelCanvas({
   const lastSectionRef = useRef(-1);
   const pointerTickRef = useRef(0);
   const particlesRef = useRef<Particle[]>([]);
+  const spinStartTimeRef = useRef(0);
+  const spinFramesCountRef = useRef(0);
+  const wasSpinningRef = useRef(false);
+  const initialVelocityRef = useRef(0);
 
   // Dynamically set canvas size based on the actual space available in its container
   useEffect(() => {
@@ -266,46 +269,29 @@ export default function WheelCanvas({
       return;
     }
 
-    // Pulse scale based on velocity
-    const speed = Math.abs(velocityRef.current);
-    const scale = 1 + Math.min(speed * 0.2, 0.05);
-
     ctx.save();
     ctx.translate(centerX, centerY);
-    if (effectsEnabled) {
-      ctx.scale(scale, scale);
-    }
 
-    // Motion blur / Glow effect
-    if (effectsEnabled && speed > 0.05) {
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = speed * 40;
-    } else {
-      ctx.shadowBlur = 0;
-    }
-
-    // ROTATE and Draw Static Wheel
+    // ROTATE and Draw Static Wheel (1:1 blit, no software Gaussian blur or scale resampling)
     ctx.rotate(currentRotation);
 
     if (staticCanvasRef.current) {
-      // Draw cached image centered
-      // Since we translated to centerX, centerY, we draw at -width/2, -height/2
       ctx.drawImage(staticCanvasRef.current, -centerX, -centerY, canvas.width, canvas.height);
     }
 
-    ctx.restore(); // Restore transform (scale + rotation)
+    ctx.restore(); // Restore transform
 
-    // Draw particles (Global coordinates)
-    if (effectsEnabled) {
-      particlesRef.current.forEach(p => {
+    // Draw particles (Global coordinates) - ultra-fast batch rects (10x faster than separate arc paths)
+    if (effectsEnabled && particlesRef.current.length > 0) {
+      const pList = particlesRef.current;
+      for (let i = 0; i < pList.length; i++) {
+        const p = pList[i];
         ctx.globalAlpha = p.life;
         ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 2 + Math.random() * 2, 0, 2 * Math.PI);
-        ctx.fill();
-      });
+        ctx.fillRect(p.x - 1.5, p.y - 1.5, 3, 3);
+      }
+      ctx.globalAlpha = 1.0;
     }
-    ctx.globalAlpha = 1.0;
 
     // Draw pointer at top OUTSIDE wheel (Fixed position)
     const tickAngle = pointerTickRef.current;
@@ -356,148 +342,166 @@ export default function WheelCanvas({
     return { winner: items[winnerIndex], index: winnerIndex };
   }, [items]);
 
-  // Keep rotationRef in sync
-  useEffect(() => {
-    rotationRef.current = rotation;
-  }, [rotation]);
-
   // Animation loop
   useEffect(() => {
-    if (!isSpinning && particlesRef.current.length === 0) return;
-
-    // Set velocity if not already spinning (for "Spin Again")
-    // JUICY: Higher velocity range
-    if (velocityRef.current < 0.01) {
-      const boost = spinDuration === 'epic' ? 0.3 : (spinDuration === 'long' ? 0.15 : 0);
-      velocityRef.current = 0.5 + Math.random() * 0.3 + boost; // Higher base and duration-based boost
+    if (!isSpinning && particlesRef.current.length === 0) {
+      wasSpinningRef.current = false;
+      return;
     }
-    hasEndedRef.current = false;
 
+    // Initialize spin parameters ONLY on transition from stopped -> spinning
+    if (isSpinning && !wasSpinningRef.current) {
+      wasSpinningRef.current = true;
+      hasEndedRef.current = false;
+      spinStartTimeRef.current = performance.now();
+      spinFramesCountRef.current = 0;
+
+      // Set velocity if not already initiated by handleClick (e.g. "Spin Again")
+      if (velocityRef.current < 0.01) {
+        const boost = spinDuration === 'epic' ? 0.3 : (spinDuration === 'long' ? 0.15 : 0);
+        velocityRef.current = 0.5 + Math.random() * 0.3 + boost;
+      }
+      initialVelocityRef.current = velocityRef.current;
+      console.log(`[Wheel Spin] Started | initial velocity: ${velocityRef.current.toFixed(4)} rad/frame (${spinDuration} mode)`);
+    }
     const baseFriction = FRICTION_MAP[spinDuration] || FRICTION_MAP.normal;
 
     const animate = () => {
+      // Use smooth consistent friction without sudden velocity cliff drops
       let friction = baseFriction;
-
-      if (spinDuration === 'epic' && velocityRef.current > 0.1) {
-        friction = 0.9985; // Extra persistent for a long time
-      } else if (spinDuration === 'long' && velocityRef.current > 0.15) {
-        friction = 0.996; // Slightly more persistent than base long
-      }
 
       // Update physics if spinning
       if (isSpinning) {
-        velocityRef.current *= friction;
+        spinFramesCountRef.current++;
+        // Combine aerodynamic drag (geometric) with constant mechanical friction (Coulomb)
+        // Eliminates the unnatural exponential crawl and prevents hesitation/apparent speedups
+        const bearingFriction = 0.00015;
+        velocityRef.current = Math.max(0, velocityRef.current * friction - bearingFriction);
 
-        setRotation(prev => {
-          const newRotation = prev + velocityRef.current;
+        // Log velocity curve progression
+        if (spinFramesCountRef.current % 60 === 0 || (velocityRef.current < 0.03 && spinFramesCountRef.current % 20 === 0)) {
+          const elapsed = ((performance.now() - spinStartTimeRef.current) / 1000).toFixed(2);
+          console.log(`[Wheel Velocity] t=${elapsed}s (frame ${spinFramesCountRef.current}): v=${velocityRef.current.toFixed(5)} rad/frame`);
+        }
 
-          // CHECK FOR TICK
-          const { index } = calculateWinner(newRotation);
+        rotationRef.current += velocityRef.current;
+        const newRotation = rotationRef.current;
 
-          if (lastSectionRef.current !== -1 && lastSectionRef.current !== index) {
-            // Section changed! Kick the pointer
-            pointerTickRef.current = -0.4; // Kick back 0.4 radians
+        // CHECK FOR TICK
+        const { index } = calculateWinner(newRotation);
 
-            // SPAWN SPARKS
-            if (effectsEnabled) {
-              const canvas = canvasRef.current;
-              if (canvas) {
-                const centerX = canvas.width / 2;
-                const centerY = canvas.height / 2;
-                const radius = Math.min(centerX, centerY) - getEffectPadding(Math.min(centerX, centerY));
-                const pointerY = centerY - radius - 20; // Match draw logic
+        if (lastSectionRef.current !== -1 && lastSectionRef.current !== index) {
+          // Section changed! Kick the pointer proportional to velocity
+          const tickAngle = Math.min(0.35, Math.max(0.04, velocityRef.current * 1.5));
+          pointerTickRef.current = -tickAngle;
 
-                // Impact sparks (Tangential)
-                const colors = ['#FFD700', '#FFA500', '#FFFFFF'];
-                // Tangential velocity scale
-                const tangVel = velocityRef.current * 40;
+          // SPAWN SPARKS (capped to 36 max particles to prevent frame drops in Firefox)
+          const MAX_PARTICLES = 36;
+          if (effectsEnabled && particlesRef.current.length < MAX_PARTICLES) {
+            const canvas = canvasRef.current;
+            if (canvas) {
+              const centerX = canvas.width / 2;
+              const centerY = canvas.height / 2;
+              const radius = Math.min(centerX, centerY) - getEffectPadding(Math.min(centerX, centerY));
+              const pointerY = centerY - radius - 20; // Match draw logic
 
-                for (let i = 0; i < 8; i++) {
-                  particlesRef.current.push({
-                    x: centerX + (Math.random() - 0.5) * 10,
-                    y: pointerY + 25, // Exact tip location
-                    // Sparks fly in wheel direction (Right) + random spread
-                    vx: tangVel + (Math.random() * 5),
-                    vy: (Math.random() - 0.5) * 8 + 2,
-                    life: 1.0,
-                    color: colors[Math.floor(Math.random() * colors.length)]
-                  });
-                }
+              // Impact sparks (Tangential)
+              const colors = ['#FFD700', '#FFA500', '#FFFFFF'];
+              const tangVel = velocityRef.current * 40;
+              const count = Math.min(3, MAX_PARTICLES - particlesRef.current.length);
+
+              for (let i = 0; i < count; i++) {
+                particlesRef.current.push({
+                  x: centerX + (Math.random() - 0.5) * 10,
+                  y: pointerY + 25, // Exact tip location
+                  vx: tangVel + (Math.random() * 5),
+                  vy: (Math.random() - 0.5) * 8 + 2,
+                  life: 1.0,
+                  color: colors[Math.floor(Math.random() * colors.length)]
+                });
               }
             }
           }
-          lastSectionRef.current = index;
-
-          return newRotation;
-        });
-
+        }
+        lastSectionRef.current = index;
       }
 
       // Spawn Rim Friction Sparks (Centrifugal/Air friction at high speed)
-      if (effectsEnabled && isSpinning && velocityRef.current > 0.2) { // Lower threshold for more action
+      const MAX_PARTICLES = 36;
+      if (effectsEnabled && isSpinning && velocityRef.current > 0.25 && particlesRef.current.length < MAX_PARTICLES) {
         const canvas = canvasRef.current;
         if (canvas) {
           const centerX = canvas.width / 2;
           const centerY = canvas.height / 2;
           const radius = Math.min(centerX, centerY) - getEffectPadding(Math.min(centerX, centerY));
-          const colors = ['#FF4500', '#FFD700', '#FFFFFF']; // Added White for pop
+          const colors = ['#FF4500', '#FFD700', '#FFFFFF'];
+          const count = Math.min(2, MAX_PARTICLES - particlesRef.current.length);
 
-          // Spawn random sparks on the rim (Increased count)
-          for (let i = 0; i < 5; i++) {
+          for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const sx = centerX + Math.cos(angle) * (radius + 5);
             const sy = centerY + Math.sin(angle) * (radius + 5);
-
-            // Tangential velocity vector
             const speed = velocityRef.current * 30;
-            const tx = -Math.sin(angle);
-            const ty = Math.cos(angle);
 
             particlesRef.current.push({
               x: sx,
               y: sy,
-              vx: tx * speed + (Math.random() - 0.5) * 5,
-              vy: ty * speed + (Math.random() - 0.5) * 5,
-              life: 0.8 + Math.random() * 0.5, // Longer life
+              vx: -Math.sin(angle) * speed + (Math.random() - 0.5) * 5,
+              vy: Math.cos(angle) * speed + (Math.random() - 0.5) * 5,
+              life: 0.8 + Math.random() * 0.4,
               color: colors[Math.floor(Math.random() * colors.length)]
             });
           }
         }
       }
 
-      // Update Particles
-      particlesRef.current.forEach(p => {
+      // Update Particles (in-place compaction, zero GC allocation)
+      let liveCount = 0;
+      const pList = particlesRef.current;
+      for (let i = 0; i < pList.length; i++) {
+        const p = pList[i];
         p.x += p.vx;
         p.y += p.vy;
         p.vy += 0.2; // Gravity
         p.vx *= 0.95; // Air resistance
         p.life *= 0.85; // Drag/fade
-      });
-      // Remove dead particles
-      particlesRef.current = particlesRef.current.filter(p => p.life > 0.05);
+        if (p.life > 0.05) {
+          pList[liveCount++] = p;
+        }
+      }
+      pList.length = liveCount;
 
       // Decay pointer tick
       pointerTickRef.current *= 0.8;
-
-      if (isSpinning && Math.abs(velocityRef.current) < 0.001) {
+      if (isSpinning && velocityRef.current <= 0.0005) {
         if (!hasEndedRef.current) {
           hasEndedRef.current = true;
-          // Wheel has stopped
+          velocityRef.current = 0;
           setIsSpinning(false);
+          wasSpinningRef.current = false;
           lastSectionRef.current = -1; // Reset
           pointerTickRef.current = 0;
+          const durationSec = (performance.now() - spinStartTimeRef.current) / 1000;
+          const avgFps = Math.round(spinFramesCountRef.current / (durationSec || 1));
+          console.log(`[Wheel Performance] Spin completed: ${avgFps} FPS (${spinFramesCountRef.current} frames in ${durationSec.toFixed(2)}s | ${items.length} items | initial vel: ${initialVelocityRef.current.toFixed(4)} -> 0.00000)`);
+
           const { winner, index } = calculateWinner(rotationRef.current);
           onSpinEnd(winner, index);
+        }
+      }
+
+      // Draw the frame
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          drawWheel(ctx, canvas, rotationRef.current);
         }
       }
 
       // Continue animation if spinning OR particles exist
       if (isSpinning || particlesRef.current.length > 0) {
         animationRef.current = requestAnimationFrame(animate);
-        // If not spinning but animating particles, force redraw
-        if (!isSpinning) {
-          setRotation(r => r);
-        }
       }
     };
 
@@ -508,9 +512,9 @@ export default function WheelCanvas({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isSpinning, calculateWinner, onSpinEnd, setIsSpinning, items.length, spinDuration, effectsEnabled]);
+  }, [isSpinning, calculateWinner, onSpinEnd, setIsSpinning, items.length, spinDuration, effectsEnabled, drawWheel]);
 
-  // Redraw on rotation change
+  // Initial and update draw
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -518,19 +522,8 @@ export default function WheelCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    drawWheel(ctx, canvas, rotation);
-  }, [rotation, items, colors, drawWheel, canvasSize]);
-
-  // Initial draw
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    drawWheel(ctx, canvas, rotation);
-  }, [drawWheel, rotation]);
+    drawWheel(ctx, canvas, rotationRef.current);
+  }, [drawWheel, canvasSize, items, colors]);
 
   // Handle click to spin
   const handleClick = () => {
@@ -551,7 +544,7 @@ export default function WheelCanvas({
         onClick={handleClick}
         className={`cursor-pointer transition-transform ${isSpinning ? 'cursor-wait' : (effectsEnabled ? 'hover:scale-[1.02]' : '')
           } ${items.length < 2 ? 'opacity-75 cursor-not-allowed' : ''}`}
-        style={{ maxWidth: '100%', height: 'auto' }}
+        style={{ maxWidth: '100%', height: 'auto', transform: 'translateZ(0)', willChange: 'transform' }}
       />
       {items.length < 2 && items.length > 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
