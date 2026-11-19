@@ -42,11 +42,23 @@ export default function Home() {
   );
 
   // ?bulk=N: one spin yields N results, each opened by click
-  const [bulk] = useState(() => {
-    if (typeof window === 'undefined') return 1;
+  const [bulkEnabled, setBulkEnabled] = useLocalStorage<boolean>('bulkEnabled', false);
+  const [bulkCount, setBulkCount] = useLocalStorage<number>('bulkCount', 5);
+  const [urlBulk] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
     const n = parseInt(new URLSearchParams(window.location.search).get('bulk') ?? '', 10);
-    return Number.isFinite(n) ? Math.min(Math.max(n, 1), MAX_ITEMS) : 1;
+    return Number.isFinite(n) ? Math.min(Math.max(n, 1), MAX_ITEMS) : null;
   });
+  // ?bulk=N seeds the controls; once the user touches them, they take over
+  const [urlActive, setUrlActive] = useState(urlBulk !== null);
+  const bulkOn = urlActive || bulkEnabled;
+  const bulkShown = urlActive ? urlBulk! : bulkCount;
+  const bulk = bulkOn ? bulkShown : 1;
+  const toggleBulk = () => {
+    setUrlActive(false);
+    setBulkEnabled(!bulkOn);
+    if (urlActive) setBulkCount(bulkShown);
+  };
   const [bulkResults, setBulkResults] = useState<{ text: string; index: number }[] | null>(null);
 
   // Handle spin end
@@ -182,8 +194,14 @@ export default function Home() {
             onEnableAll={() => setDisabledIndices([])}
             onShuffle={handleShuffle}
           />
-          <div className="flex flex-col gap-6">
-            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+          {/* Height follows the list; history scrolls inside it instead of growing */}
+          <div className="h-80 md:h-auto md:relative">
+            <div className="h-full md:absolute md:inset-0">
+              <SpinHistory history={history} />
+            </div>
+          </div>
+          <div className="md:col-span-2 flex flex-col md:grid md:grid-cols-2 gap-6 items-start">
+            <div className="w-full bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
               <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span className="text-2xl">⚡</span> Spin Speed
               </h2>
@@ -203,6 +221,38 @@ export default function Home() {
                           'Very Slow 🐢'}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="text-2xl">🎁</span> Bulk Results
+                </h2>
+                <button
+                  onClick={toggleBulk}
+                  aria-label="Toggle bulk results"
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${bulkOn ? 'bg-blue-600' : 'bg-gray-600'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${bulkOn ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-3">
+                <label htmlFor="bulkCount" className="text-gray-300">Cards per spin (max {MAX_ITEMS})</label>
+                <input
+                  id="bulkCount"
+                  type="number"
+                  min={2}
+                  max={MAX_ITEMS}
+                  value={bulkShown}
+                  disabled={!bulkOn}
+                  onChange={(e) => {
+                    setUrlActive(false);
+                    setBulkEnabled(true);
+                    setBulkCount(Math.min(Math.max(parseInt(e.target.value) || 2, 2), MAX_ITEMS));
+                  }}
+                  className="w-20 bg-gray-700 border border-gray-600 rounded-lg px-2 py-1 text-white disabled:opacity-50"
+                />
               </div>
             </div>
 
@@ -263,7 +313,6 @@ export default function Home() {
               backgroundImage={backgroundImage}
               setBackgroundImage={setBackgroundImage}
             />
-            <SpinHistory history={history} />
           </div>
         </div>
         <footer className="text-center text-gray-500 py-8">
@@ -276,6 +325,7 @@ export default function Home() {
           results={bulkResults}
           disabledIndices={disabledIndices}
           onToggleDisable={toggleDisable}
+          onDisableAll={(indices) => setDisabledIndices(prev => [...new Set([...prev, ...indices])])}
           effectsEnabled={effectsEnabled}
           onClose={() => setBulkResults(null)}
           onSpinAgain={() => {

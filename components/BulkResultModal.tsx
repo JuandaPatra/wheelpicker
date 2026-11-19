@@ -7,6 +7,7 @@ interface BulkResultModalProps {
   results: { text: string; index: number }[];
   disabledIndices: number[];
   onToggleDisable: (index: number) => void;
+  onDisableAll: (indices: number[]) => void;
   effectsEnabled: boolean;
   onClose: () => void;
   onSpinAgain: () => void;
@@ -16,6 +17,7 @@ export default function BulkResultModal({
   results,
   disabledIndices,
   onToggleDisable,
+  onDisableAll,
   effectsEnabled,
   onClose,
   onSpinAgain,
@@ -76,6 +78,12 @@ export default function BulkResultModal({
           )}
         </div>
 
+        <button
+          onClick={() => onDisableAll(results.map(r => r.index))}
+          className="w-full mb-3 bg-yellow-600/10 hover:bg-yellow-600/20 text-yellow-500 px-6 py-3 rounded-xl font-bold border border-yellow-500/20"
+        >
+          👁️ Disable All Results
+        </button>
         <button
           onClick={onSpinAgain}
           className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-bold"

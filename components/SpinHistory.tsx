@@ -7,7 +7,7 @@ interface SpinHistoryProps {
 export default function SpinHistory({ history }: SpinHistoryProps) {
   if (history.length === 0) {
     return (
-      <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+      <div className="h-full bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
         <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
           <span className="text-2xl">📜</span> Spin History
         </h2>
@@ -17,12 +17,12 @@ export default function SpinHistory({ history }: SpinHistoryProps) {
   }
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
+    <div className="h-full flex flex-col bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700">
       <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
         <span className="text-2xl">📜</span> Spin History
         <span className="text-sm font-normal text-gray-400">({history.length})</span>
       </h2>
-      <div className="max-h-48 overflow-y-auto space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
         {history.map((entry, index) => (
           <div
             key={`${entry.timestamp}-${index}`}
