@@ -20,6 +20,8 @@ interface HistoryEntry {
 
 export default function Home() {
   const wheelContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showTop, setShowTop] = useState(false);
   // Persistent state
   const [items, setItems] = useLocalStorage<string[]>('wheelItems', []);
   const [colors, setColors] = useLocalStorage<string[]>('wheelColors', DEFAULT_COLORS);
@@ -142,6 +144,8 @@ export default function Home() {
 
   return (
     <div
+      ref={scrollRef}
+      onScroll={(e) => setShowTop(e.currentTarget.scrollTop > 300)}
       className={`h-dvh w-full overflow-y-auto snap-y snap-mandatory ${!backgroundImage ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' : ''}`}
       style={
         backgroundImage
@@ -334,6 +338,16 @@ export default function Home() {
             setTimeout(() => setIsSpinning(true), 200);
           }}
         />
+      )}
+
+      {showTop && (
+        <button
+          onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          aria-label="Scroll to top"
+          className="fixed bottom-6 right-6 z-40 h-12 w-12 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-2xl shadow-xl transition-colors"
+        >
+          ↑
+        </button>
       )}
 
       {/* Result Modal */}
