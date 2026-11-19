@@ -64,9 +64,10 @@ export default function Home() {
   // Handle spin end
   const handleSpinEnd = useCallback((winnerText: string, winnerIndex: number) => {
     if (bulk > 1) {
-      // shortcut: extra results are independent random picks (duplicates possible), the wheel decides only the first
-      const extra = Array.from({ length: bulk - 1 }, () => Math.floor(Math.random() * wheelItems.length));
-      const all = [winnerIndex, ...extra].map(i => ({ text: wheelItems[i], index: wheelMapping[i] }));
+      // every card is a different item; fewer unique items than `bulk` means fewer cards
+      const winnerSrc = wheelMapping[winnerIndex];
+      const others = shuffleArray([...new Set(wheelMapping)].filter(src => src !== winnerSrc)).slice(0, bulk - 1);
+      const all = [winnerSrc, ...others].map(src => ({ text: items[src], index: src }));
       setBulkResults(all);
       setHistory(prev => [...all.map(r => ({ winner: r.text, timestamp: Date.now() })), ...prev]);
       return;
@@ -76,7 +77,7 @@ export default function Home() {
     setWinner({ text: winnerText, index: sourceIndex });
     setShowModal(true);
     setHistory(prev => [{ winner: winnerText, timestamp: Date.now() }, ...prev]);
-  }, [setHistory, wheelMapping, bulk, wheelItems]);
+  }, [setHistory, wheelMapping, bulk, items]);
 
   // Handle spin again from modal
   const handleSpinAgain = () => {

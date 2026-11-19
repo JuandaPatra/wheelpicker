@@ -67,3 +67,63 @@ body {
 .animate-scale-in {
   animation: scale-in 0.2s ease-out;
 }
+
+/* Holographic foil for the wild card: rainbow sheen + sparkles, like a Pokemon full-art */
+.holo::before,
+.holo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+.holo::before {
+  background: repeating-linear-gradient(
+    115deg,
+    #ff0080 0%, #ffd000 10%, #00ff9d 20%, #00c8ff 30%, #a64dff 40%, #ff0080 50%
+  );
+  background-size: 300% 300%;
+  mix-blend-mode: color-dodge;
+  opacity: 0.55;
+}
+.holo::after {
+  background:
+    radial-gradient(circle at 20% 25%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 75% 20%, #fff 0 3px, transparent 4px),
+    radial-gradient(circle at 60% 60%, #fff 0 2px, transparent 3px),
+    radial-gradient(circle at 25% 78%, #fff 0 3px, transparent 4px),
+    radial-gradient(circle at 85% 82%, #fff 0 2px, transparent 3px),
+    linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 250% 100%;
+  mix-blend-mode: overlay;
+}
+.holo-anim::before {
+  animation: holo-shift 4s linear infinite;
+}
+.holo-anim::after {
+  animation: holo-sweep 2.5s ease-in-out infinite;
+}
+@keyframes holo-shift {
+  to { background-position: 300% 300%; }
+}
+@keyframes holo-sweep {
+  from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 150% 0; }
+  to { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, -50% 0; }
+}
+
+/* Wild card: shake while it flips open */
+@keyframes wild-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  10% { transform: translate(-5px, 2px) rotate(-4deg); }
+  20% { transform: translate(5px, -3px) rotate(4deg); }
+  30% { transform: translate(-6px, 3px) rotate(-5deg); }
+  40% { transform: translate(6px, -2px) rotate(5deg); }
+  50% { transform: translate(-4px, 3px) rotate(-3deg); }
+  60% { transform: translate(4px, -3px) rotate(3deg); }
+  70% { transform: translate(-3px, 2px) rotate(-2deg); }
+  80% { transform: translate(3px, -1px) rotate(2deg); }
+  90% { transform: translate(-1px, 1px) rotate(-1deg); }
+}
+.animate-wild-shake {
+  animation: wild-shake 0.7s ease-in-out;
+}
