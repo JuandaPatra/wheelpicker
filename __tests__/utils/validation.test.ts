@@ -14,8 +14,8 @@ import {
 
 describe('utils/validation', () => {
     describe('constants', () => {
-        it('MAX_ITEMS should be 50', () => {
-            expect(MAX_ITEMS).toBe(50);
+        it('MAX_ITEMS should be 100', () => {
+            expect(MAX_ITEMS).toBe(100);
         });
 
         it('MIN_ITEMS_TO_SPIN should be 2', () => {

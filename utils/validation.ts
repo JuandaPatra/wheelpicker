@@ -1,5 +1,5 @@
 // Maximum number of items allowed on the wheel
-export const MAX_ITEMS = 50;
+export const MAX_ITEMS = 100;
 export const MIN_ITEMS_TO_SPIN = 2;
 
 export interface ValidationResult {

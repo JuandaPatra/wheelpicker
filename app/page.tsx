@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+import BulkResultModal from '@/components/BulkResultModal';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import WheelCanvas from '@/components/WheelCanvas';
 import ListManager from '@/components/ListManager';
@@ -9,7 +10,7 @@ import SpinHistory from '@/components/SpinHistory';
 import ColorPicker from '@/components/ColorPicker';
 import { DEFAULT_COLORS } from '@/utils/colors';
 import { getWheelItems } from '@/utils/wheelUtils';
-import { shuffleArray } from '@/utils/validation';
+import { shuffleArray, MAX_ITEMS } from '@/utils/validation';
 import { useMemo } from 'react';
 
 interface HistoryEntry {
@@ -40,14 +41,30 @@ export default function Home() {
     [items, disabledIndices, repeatCount]
   );
 
+  // ?bulk=N: one spin yields N results, each opened by click
+  const [bulk] = useState(() => {
+    if (typeof window === 'undefined') return 1;
+    const n = parseInt(new URLSearchParams(window.location.search).get('bulk') ?? '', 10);
+    return Number.isFinite(n) ? Math.min(Math.max(n, 1), MAX_ITEMS) : 1;
+  });
+  const [bulkResults, setBulkResults] = useState<{ text: string; index: number }[] | null>(null);
+
   // Handle spin end
   const handleSpinEnd = useCallback((winnerText: string, winnerIndex: number) => {
+    if (bulk > 1) {
+      // shortcut: extra results are independent random picks (duplicates possible), the wheel decides only the first
+      const extra = Array.from({ length: bulk - 1 }, () => Math.floor(Math.random() * wheelItems.length));
+      const all = [winnerIndex, ...extra].map(i => ({ text: wheelItems[i], index: wheelMapping[i] }));
+      setBulkResults(all);
+      setHistory(prev => [...all.map(r => ({ winner: r.text, timestamp: Date.now() })), ...prev]);
+      return;
+    }
     // Map wheel index back to source index
     const sourceIndex = wheelMapping[winnerIndex];
     setWinner({ text: winnerText, index: sourceIndex });
     setShowModal(true);
     setHistory(prev => [{ winner: winnerText, timestamp: Date.now() }, ...prev]);
-  }, [setHistory, wheelMapping]);
+  }, [setHistory, wheelMapping, bulk, wheelItems]);
 
   // Handle spin again from modal
   const handleSpinAgain = () => {
@@ -253,6 +270,20 @@ export default function Home() {
           Scroll up to spin! ↑
         </footer>
       </section>
+
+      {bulkResults && (
+        <BulkResultModal
+          results={bulkResults}
+          disabledIndices={disabledIndices}
+          onToggleDisable={toggleDisable}
+          effectsEnabled={effectsEnabled}
+          onClose={() => setBulkResults(null)}
+          onSpinAgain={() => {
+            setBulkResults(null);
+            setTimeout(() => setIsSpinning(true), 200);
+          }}
+        />
+      )}
 
       {/* Result Modal */}
       <ResultModal
