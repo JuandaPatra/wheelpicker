@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import BulkResultModal from '@/components/BulkResultModal';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import WheelCanvas from '@/components/WheelCanvas';
+import WheelCanvas, { WHEEL_SHAPES, type WheelShape } from '@/components/WheelCanvas';
 import ListManager from '@/components/ListManager';
 import ResultModal from '@/components/ResultModal';
 import SpinHistory from '@/components/SpinHistory';
@@ -28,6 +28,7 @@ export default function Home() {
   const [backgroundImage, setBackgroundImage] = useLocalStorage<string | null>('wheelBackground', null);
   const [history, setHistory] = useLocalStorage<HistoryEntry[]>('spinHistory', []);
   const [effectsEnabled, setEffectsEnabled] = useLocalStorage<boolean>('effectsEnabled', true);
+  const [shape, setShape] = useLocalStorage<WheelShape>('wheelShape', 'classic');
   const [repeatCount, setRepeatCount] = useLocalStorage<number>('repeatCount', 1);
   const [disabledIndices, setDisabledIndices] = useLocalStorage<number[]>('disabledIndices', []);
 
@@ -177,8 +178,23 @@ export default function Home() {
             setIsSpinning={setIsSpinning}
             spinDuration={spinDuration}
             effectsEnabled={effectsEnabled}
+            shape={shape}
             containerRef={wheelContainerRef}
           />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 z-10 flex gap-1 rounded-full bg-gray-900/70 p-1">
+            {WHEEL_SHAPES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                disabled={isSpinning}
+                aria-pressed={shape === s}
+                onClick={() => setShape(s)}
+                className={`px-3 py-1 rounded-full text-sm capitalize disabled:opacity-50 ${shape === s ? 'bg-pink-500 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
           {/* Vignette Overlay (Full Screen) */}
           <div
             className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 z-50

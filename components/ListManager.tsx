@@ -236,7 +236,7 @@ export default function ListManager({
       </div>
 
       {/* Items list */}
-      <div className="space-y-1">
+      <div className="max-h-[600px] overflow-y-auto space-y-1">
         {items.length === 0 ? (
           <p className="text-gray-400 text-center py-4">No items yet. Add some above!</p>
         ) : (

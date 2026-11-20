@@ -21,10 +21,12 @@ describe('utils/colors', () => {
             'neon',
             'autumn',
             'ocean',
+            'sunset',
+            'forest',
         ];
 
-        it('should have all 5 preset themes', () => {
-            expect(Object.keys(COLOR_PRESETS)).toHaveLength(5);
+        it('should have all 7 preset themes', () => {
+            expect(Object.keys(COLOR_PRESETS)).toHaveLength(7);
             presetNames.forEach((name) => {
                 expect(COLOR_PRESETS).toHaveProperty(name);
             });

@@ -110,7 +110,7 @@ export default function BulkResultModal({
                   {/* back: revealed result. Wild = purple + neon green */}
                   <div
                     className={`${outer} ${wild ? 'bg-amber-300' : 'bg-amber-200'}`}
-                    style={{ ...shape, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', pointerEvents: open ? 'auto' : 'none' }}
+                    style={{ ...shape, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', pointerEvents: open ? 'auto' : 'none', visibility: open ? 'visible' : 'hidden' }}
                   >
                     <div
                       className={`${inner} font-extrabold break-words ${wild ? 'holo text-amber-300 ' + (effectsEnabled ? 'holo-anim' : '') : 'text-amber-950'}`}

@@ -6,6 +6,9 @@ import { DEFAULT_COLORS } from '@/utils/colors';
 // Spin duration configuration
 export type SpinDuration = 'short' | 'normal' | 'long' | 'epic';
 
+export type WheelShape = 'classic' | 'neon' | 'wooden' | 'donut' | 'tiles';
+export const WHEEL_SHAPES: WheelShape[] = ['classic', 'neon', 'wooden', 'donut', 'tiles'];
+
 const FRICTION_MAP = {
   short: 0.97,
   normal: 0.985,
@@ -31,6 +34,7 @@ interface WheelCanvasProps {
   setIsSpinning: (spinning: boolean) => void;
   spinDuration?: SpinDuration;
   effectsEnabled: boolean;
+  shape?: WheelShape;
   containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
@@ -52,6 +56,7 @@ export default function WheelCanvas({
   setIsSpinning,
   spinDuration = 'normal',
   effectsEnabled,
+  shape = 'classic',
   containerRef
 }: WheelCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -130,28 +135,58 @@ export default function WheelCanvas({
     const sliceAngle = (2 * Math.PI) / items.length;
     const colorPalette = colors.length > 0 ? colors : DEFAULT_COLORS;
 
+    // Per-shape geometry: rimW = frame thickness, hubR = inner hole/hub radius
+    const rimW = shape === 'wooden' ? radius * 0.1 : 0;
+    const sliceR = radius - rimW;
+    const isRing = shape === 'donut' || shape === 'tiles';
+    const hubR = shape === 'tiles' ? radius * 0.5 : shape === 'donut' ? radius * 0.4 : 30;
+
     // Draw outer rim
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius + 5, 0, 2 * Math.PI);
-    ctx.fillStyle = '#111827';
+    if (shape === 'wooden') {
+      const g = ctx.createLinearGradient(0, 0, canvasSize, canvasSize);
+      g.addColorStop(0, '#8B5A2B');
+      g.addColorStop(0.5, '#5B3A1A');
+      g.addColorStop(1, '#8B5A2B');
+      ctx.fillStyle = g;
+    } else {
+      ctx.fillStyle = shape === 'neon' ? '#052E16' : shape === 'tiles' ? '#1E0B3A' : '#111827';
+    }
     ctx.fill();
+    if (shape === 'neon' || shape === 'tiles') {
+      const glow = shape === 'neon' ? '#22C55E' : '#C026D3';
+      ctx.strokeStyle = glow;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
 
     // Draw segments (Rotation 0)
     items.forEach((item, index) => {
       const startAngle = index * sliceAngle;
       const endAngle = startAngle + sliceAngle;
 
-      // Draw slice
+      // Draw slice (ring-shaped when hub is a hole)
       ctx.beginPath();
-      ctx.moveTo(centerX, centerY);
-      ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+      if (isRing) {
+        ctx.arc(centerX, centerY, sliceR, startAngle, endAngle);
+        ctx.arc(centerX, centerY, hubR, endAngle, startAngle, true);
+      } else {
+        ctx.moveTo(centerX, centerY);
+        ctx.arc(centerX, centerY, sliceR, startAngle, endAngle);
+      }
       ctx.closePath();
 
       ctx.fillStyle = colorPalette[index % colorPalette.length];
       ctx.fill();
 
-      ctx.strokeStyle = '#1F2937';
-      ctx.lineWidth = 2;
+      // Neon: thick dark stroke gives the gapped, rounded-tile look
+      ctx.strokeStyle = shape === 'neon' ? '#052E16' : shape === 'tiles' ? '#1E0B3A' : shape === 'wooden' ? '#5B3A1A' : '#1F2937';
+      ctx.lineWidth = shape === 'neon' || shape === 'tiles' ? 8 : shape === 'wooden' ? 5 : 2;
+      ctx.lineJoin = 'round';
       ctx.stroke();
 
       // Draw text
@@ -167,10 +202,10 @@ export default function WheelCanvas({
       const sliceAngleSize = (2 * Math.PI) / items.length;
 
       // 1. Set text anchor right at the rim (with small 15px padding)
-      const textRadius = radius - 15;
+      const textRadius = sliceR - 15;
 
-      // 2. Max width: from rim almost to the center hub (dist of ~45px from center)
-      const maxTextWidth = radius - 45;
+      // 2. Max width: from rim almost to the center hub
+      const maxTextWidth = textRadius - hubR - 5;
 
       // 3. Calculate initial font size based on slice count
       // Larger for few items, smaller for many
@@ -223,14 +258,26 @@ export default function WheelCanvas({
       // --- END NEW RENDERING ---
     });
 
+    // Donut has an open hole instead of a hub: draw only its inner edge
+    if (isRing) {
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, hubR, 0, 2 * Math.PI);
+      ctx.strokeStyle = shape === 'tiles' ? '#C026D3' : '#FFFFFF';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      return;
+    }
+
     // Draw center circle (Hub)
+    const hubOuter = shape === 'wooden' ? '#FDBA74' : shape === 'neon' ? '#22C55E' : '#FFFFFF';
+    const hubInner = shape === 'wooden' ? '#F59E0B' : shape === 'neon' ? '#0B1F14' : '#1F2937';
     ctx.beginPath();
     ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = hubOuter;
     ctx.fill();
     ctx.beginPath();
     ctx.arc(centerX, centerY, 25, 0, 2 * Math.PI);
-    ctx.fillStyle = '#1F2937';
+    ctx.fillStyle = hubInner;
     ctx.fill();
 
     // Draw Center Star/Icon
@@ -240,7 +287,7 @@ export default function WheelCanvas({
     ctx.textBaseline = 'middle';
     ctx.fillText('★', centerX, centerY);
 
-  }, [items, colors, canvasSize]);
+  }, [items, colors, canvasSize, shape]);
 
   // Draw the wheel (Render Loop)
   const drawWheel = useCallback((ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, currentRotation: number) => {
@@ -523,7 +570,7 @@ export default function WheelCanvas({
     if (!ctx) return;
 
     drawWheel(ctx, canvas, rotationRef.current);
-  }, [drawWheel, canvasSize, items, colors]);
+  }, [drawWheel, canvasSize, items, colors, shape]);
 
   // Handle click to spin
   const handleClick = () => {

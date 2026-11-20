@@ -21,6 +21,8 @@ export const COLOR_PRESETS = {
   neon: ['#FF0080', '#00FF00', '#00FFFF', '#FF00FF', '#FFFF00', '#FF6600', '#0066FF', '#9933FF', '#00FF99', '#FF3366'],
   autumn: ['#D4A373', '#BC6C25', '#DDA15E', '#606C38', '#283618', '#FEFAE0', '#E9EDC9', '#CCD5AE', '#B7C4AA', '#A98467'],
   ocean: ['#03045E', '#0077B6', '#00B4D8', '#90E0EF', '#CAF0F8', '#48CAE4', '#00A8E8', '#007EA7', '#003459', '#00171F'],
+  sunset: ['#FF5E5B', '#FF8552', '#FFB347', '#FFD166', '#F9A1BC', '#E4572E', '#C44569', '#8E3B8E', '#5F4B8B', '#2D1E4F'],
+  forest: ['#1B4332', '#2D6A4F', '#40916C', '#52B788', '#74C69D', '#95D5B2', '#B7E4C7', '#6B8E23', '#8B5A2B', '#A3B18A'],
 };
 
 export type ColorPreset = keyof typeof COLOR_PRESETS;
